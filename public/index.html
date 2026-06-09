@@ -1,0 +1,607 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caption — subtitle your video</title>
+<style>
+  :root{
+    --bg:#16130d;
+    --surface:#211d15;
+    --surface-2:#2b261b;
+    --line:#3a3327;
+    --text:#ece6d8;
+    --muted:#a39a86;
+    --accent:#f4c95d;      /* caption yellow */
+    --accent-dim:#c9a544;
+    --danger:#e08a5a;
+    --good:#86c08a;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit}
+  ::selection{background:var(--accent);color:#1a160d}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 80px}
+
+  header.bar{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:8px 0 20px;border-bottom:1px solid var(--line);margin-bottom:22px;
+  }
+  .brand{display:flex;align-items:baseline;gap:12px;margin-right:auto}
+  .brand .mark{
+    font-family:var(--mono);font-weight:600;letter-spacing:.02em;
+    font-size:20px;color:var(--bg);background:var(--accent);
+    padding:4px 9px;border-radius:6px;
+  }
+  .brand .sub{color:var(--muted);font-size:13px;font-family:var(--mono)}
+
+  .btn{
+    border:1px solid var(--line);background:var(--surface);color:var(--text);
+    padding:9px 14px;border-radius:8px;cursor:pointer;font-size:14px;
+    display:inline-flex;align-items:center;gap:8px;transition:.12s border-color,.12s background;
+  }
+  .btn:hover{border-color:var(--accent-dim)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#1a160d;font-weight:600}
+  .btn.primary:hover{background:#f7d574}
+  .btn.ghost{background:transparent}
+  .btn.danger{border-color:#5a4030;color:var(--danger)}
+  .btn.danger:hover{border-color:var(--danger)}
+
+  /* layout */
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+  .panel .hd{
+    padding:11px 15px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  }
+  .panel .bd{padding:15px}
+
+  /* dropzone */
+  #drop{
+    border:1.5px dashed var(--line);border-radius:var(--radius);
+    padding:46px 20px;text-align:center;cursor:pointer;transition:.15s;
+    background:repeating-linear-gradient(45deg,transparent,transparent 12px,rgba(244,201,93,.018) 12px,rgba(244,201,93,.018) 24px);
+  }
+  #drop:hover,#drop.over{border-color:var(--accent);background:rgba(244,201,93,.05)}
+  #drop .big{font-size:17px;margin:0 0 6px}
+  #drop .small{color:var(--muted);font-size:13px}
+
+  /* video stage */
+  .stage{position:relative;background:#000;border-radius:8px;overflow:hidden;line-height:0}
+  .stage video{width:100%;display:block;max-height:52vh;background:#000}
+  #overlay{
+    position:absolute;left:0;right:0;display:flex;justify-content:center;
+    pointer-events:none;padding:0 6%;
+  }
+  #overlay .cap{
+    font-family:var(--sans);font-weight:700;text-align:center;
+    color:var(--accent);background:rgba(0,0,0,.62);
+    padding:.15em .5em;border-radius:4px;white-space:pre-wrap;line-height:1.25;
+    text-shadow:0 1px 2px rgba(0,0,0,.6);
+  }
+
+  .transport{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .tc{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .tc b{color:var(--text);font-weight:500}
+
+  /* style controls */
+  .controls{display:grid;grid-template-columns:repeat(2,1fr);gap:13px 18px;margin-top:4px}
+  .ctl{display:flex;flex-direction:column;gap:6px}
+  .ctl label{font-size:12px;color:var(--muted);font-family:var(--mono);letter-spacing:.04em}
+  .ctl input[type=range]{width:100%;accent-color:var(--accent)}
+  .ctl .row{display:flex;align-items:center;gap:10px}
+  input[type=color]{width:42px;height:30px;padding:0;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);cursor:pointer}
+  .swatch-val{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  select,input[type=text]{
+    background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    border-radius:6px;padding:7px 9px;font-family:var(--mono);font-size:13px;
+  }
+  select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent-dim)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .seg button{background:var(--surface-2);border:0;color:var(--muted);padding:6px 11px;cursor:pointer;font-size:13px}
+  .seg button.on{background:var(--accent);color:#1a160d;font-weight:600}
+
+  /* actions */
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+
+  /* status line */
+  .status{
+    font-family:var(--mono);font-size:12.5px;color:var(--muted);
+    min-height:18px;margin-top:10px;display:flex;align-items:center;gap:8px;
+  }
+  .status .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+  .status.work .dot{background:var(--accent);animation:pulse 1s infinite}
+  .status.err .dot{background:var(--danger)}
+  .status.ok .dot{background:var(--good)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .progress{height:4px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:8px;display:none}
+  .progress.show{display:block}
+  .progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+
+  /* cue list */
+  .cuehead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .cuehead .count{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:auto}
+  .cues{display:flex;flex-direction:column;gap:9px;max-height:560px;overflow:auto;padding-right:4px}
+  .cue{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface-2)}
+  .cue.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .cue .times{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .cue .times input{width:108px;text-align:center}
+  .cue .times .arrow{color:var(--muted)}
+  .cue .mini{
+    border:1px solid var(--line);background:var(--surface);color:var(--muted);
+    border-radius:5px;padding:4px 7px;font-size:11px;cursor:pointer;font-family:var(--mono);
+  }
+  .cue .mini:hover{border-color:var(--accent-dim);color:var(--text)}
+  .cue .spacer{margin-left:auto;display:flex;gap:6px}
+  .cue textarea{
+    width:100%;background:var(--surface);border:1px solid var(--line);color:var(--text);
+    border-radius:6px;padding:8px;font-family:var(--sans);font-size:14px;resize:vertical;min-height:42px;
+  }
+  .empty{color:var(--muted);text-align:center;padding:34px 10px;font-size:14px}
+  .empty code{font-family:var(--mono);color:var(--accent-dim)}
+
+  .hint{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5}
+  .hint b{color:var(--text);font-weight:500}
+  a{color:var(--accent-dim)}
+  .hidden{display:none !important}
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <div class="brand">
+      <span class="mark">CC</span>
+      <div>
+        <div style="font-weight:600">Caption</div>
+        <div class="sub">subtitle a video, in your browser</div>
+      </div>
+    </div>
+    <button class="btn" id="loadBtn">Load video…</button>
+    <input type="file" id="file" accept="video/*,audio/*" class="hidden">
+  </header>
+
+  <!-- Empty state -->
+  <div id="drop">
+    <p class="big">Drop a video here, or click to choose one</p>
+    <p class="small">Processed by the subtitle service running on your own machine — nothing leaves your network.</p>
+  </div>
+
+  <!-- Editor -->
+  <div class="grid hidden" id="editor">
+    <!-- LEFT -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+      <div class="panel">
+        <div class="hd">Preview</div>
+        <div class="bd">
+          <div class="stage">
+            <video id="video" controls playsinline></video>
+            <div id="overlay"><span class="cap" id="cap"></span></div>
+          </div>
+          <div class="transport">
+            <span class="tc"><b id="tcur">00:00.000</b> / <span id="tdur">00:00.000</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="hd">Caption style</div>
+        <div class="bd">
+          <div class="controls">
+            <div class="ctl">
+              <label>Text size</label>
+              <input type="range" id="sSize" min="2" max="9" step="0.25" value="4.2">
+            </div>
+            <div class="ctl">
+              <label>Position from bottom</label>
+              <input type="range" id="sPos" min="2" max="45" step="1" value="8">
+            </div>
+            <div class="ctl">
+              <label>Text colour</label>
+              <div class="row">
+                <input type="color" id="sColor" value="#f4c95d">
+                <span class="swatch-val" id="sColorV">#f4c95d</span>
+              </div>
+            </div>
+            <div class="ctl">
+              <label>Box opacity</label>
+              <input type="range" id="sBox" min="0" max="100" step="5" value="62">
+            </div>
+            <div class="ctl">
+              <label>Weight</label>
+              <div class="seg" id="sWeight">
+                <button data-w="500">Regular</button>
+                <button data-w="700" class="on">Bold</button>
+              </div>
+            </div>
+            <div class="ctl">
+              <label>Outline</label>
+              <div class="seg" id="sOutline">
+                <button data-o="0" class="on">Off</button>
+                <button data-o="1">On</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="panel">
+      <div class="hd">Subtitles</div>
+      <div class="bd">
+        <div class="actions">
+          <button class="btn primary" id="autoBtn">Auto-transcribe</button>
+          <select id="modelSel" title="Bigger = more accurate. Runs on the backend, not your browser.">
+            <option value="Xenova/whisper-tiny.en">English · fast</option>
+            <option value="Xenova/whisper-base.en" selected>English · accurate</option>
+            <option value="Xenova/whisper-small.en">English · best</option>
+            <option value="Xenova/whisper-base">Other languages</option>
+          </select>
+          <input type="text" id="langInput" placeholder="lang e.g. spanish" title="Only for the 'Other languages' model. Leave blank to auto-detect." style="width:130px">
+          <button class="btn" id="addBtn">Add line</button>
+          <button class="btn" id="importBtn">Import .srt / .vtt</button>
+          <input type="file" id="subFile" accept=".srt,.vtt,text/plain" class="hidden">
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="srtBtn" disabled>Export .srt</button>
+          <button class="btn ghost" id="vttBtn" disabled>Export .vtt</button>
+          <select id="burnMode" title="Soft = fast, toggleable track. Hard = permanently drawn on the picture.">
+            <option value="soft" selected>Soft subtitles (fast)</option>
+            <option value="hard">Hard burn-in</option>
+          </select>
+          <button class="btn ghost danger" id="burnBtn" disabled>Burn into video</button>
+        </div>
+
+        <div class="status" id="status"><span class="dot"></span><span id="statusMsg">Ready.</span></div>
+        <div class="progress" id="progress"><i></i></div>
+
+        <div class="cuehead" style="margin-top:16px">
+          <span class="count" id="count">0 lines</span>
+        </div>
+        <div class="cues" id="cues">
+          <div class="empty" id="cuesEmpty">
+            No subtitles yet.<br>Hit <code>Auto-transcribe</code> to generate them from the audio, or <code>Add line</code> to write your own.
+          </div>
+        </div>
+
+        <p class="hint">
+          <b>Transcription runs on the local service</b>, not in this tab — the audio is split into segments and processed across several worker threads in parallel, so your browser stays responsive. Bigger models are more accurate but slower; pick the language model for non-English audio and optionally type the language.<br><br>
+          <b>Burn into video</b> is done by ffmpeg on the backend. <b>Soft</b> adds a fast, lossless, toggleable subtitle track (recommended). <b>Hard</b> permanently draws the captions onto the picture (needs an ffmpeg built with libass). Output is an <code>.mp4</code>. Or export an <code>.srt</code> to keep captions separate and editable.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* ---------- tiny helpers ---------- */
+const $ = (s)=>document.querySelector(s);
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const pad=(n,l=2)=>String(Math.floor(n)).padStart(l,"0");
+
+function fmtClock(t){ // MM:SS.mmm for the UI
+  t=Math.max(0,t||0);
+  const m=Math.floor(t/60), s=Math.floor(t%60), ms=Math.round((t-Math.floor(t))*1000);
+  return `${pad(m)}:${pad(s)}.${pad(ms,3)}`;
+}
+function fmtStamp(t,sep){ // HH:MM:SS,mmm  (srt: sep=",", vtt: sep=".")
+  t=Math.max(0,t||0);
+  const h=Math.floor(t/3600), m=Math.floor((t%3600)/60), s=Math.floor(t%60), ms=Math.round((t-Math.floor(t))*1000);
+  return `${pad(h)}:${pad(m)}:${pad(s)}${sep}${pad(ms,3)}`;
+}
+function parseClock(str){ // "MM:SS.mmm" or "SS.mmm" or "HH:MM:SS.mmm" -> seconds
+  if(typeof str!=="string") return null;
+  str=str.trim().replace(",",".");
+  const parts=str.split(":").map(Number);
+  if(parts.some(isNaN)) return null;
+  let s=0;
+  if(parts.length===1) s=parts[0];
+  else if(parts.length===2) s=parts[0]*60+parts[1];
+  else s=parts[0]*3600+parts[1]*60+parts[2];
+  return s;
+}
+
+/* ---------- state ---------- */
+let cues=[];        // {id,start,end,text}
+let nextId=1;
+let videoURL=null;
+let transcriber=null;       // (unused legacy)
+let models={};              // cache of loaded pipelines by model id
+let modelLoading=false;
+
+const video=$("#video"), cap=$("#cap"), overlay=$("#overlay");
+const style={size:4.2,pos:8,color:"#f4c95d",box:62,weight:700,outline:0};
+
+/* ---------- loading a video ---------- */
+$("#loadBtn").onclick=()=>$("#file").click();
+$("#drop").onclick=()=>$("#file").click();
+$("#file").onchange=(e)=>{ if(e.target.files[0]) loadVideo(e.target.files[0]); };
+
+const drop=$("#drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f) loadVideo(f); });
+
+let currentFile=null;
+function loadVideo(file){
+  currentFile=file;
+  if(videoURL) URL.revokeObjectURL(videoURL);
+  videoURL=URL.createObjectURL(file);
+  video.src=videoURL;
+  $("#drop").classList.add("hidden");
+  $("#editor").classList.remove("hidden");
+  video.onloadedmetadata=()=>{ $("#tdur").textContent=fmtClock(video.duration); };
+  setStatus("Video loaded. Auto-transcribe, or add lines by hand.","");
+}
+
+/* ---------- live preview overlay ---------- */
+function applyStyle(){
+  const c=cap;
+  c.style.fontSize=style.size+"vw"; // relative to stage width via vw-ish; recalibrated below
+  c.style.color=style.color;
+  const a=(style.box/100).toFixed(2);
+  c.style.background=`rgba(0,0,0,${a})`;
+  c.style.fontWeight=style.weight;
+  c.style.textShadow = style.outline
+    ? "0 0 2px #000,0 0 2px #000,1px 1px 2px #000,-1px -1px 2px #000"
+    : "0 1px 2px rgba(0,0,0,.6)";
+  overlay.style.bottom=style.pos+"%";
+  // size relative to the actual rendered video width, not viewport
+  const w=video.clientWidth||640;
+  c.style.fontSize=Math.max(11,(style.size/100)*w)+"px";
+}
+function activeCue(t){
+  for(const q of cues){ if(t>=q.start && t<q.end) return q; }
+  return null;
+}
+function tick(){
+  const t=video.currentTime;
+  $("#tcur").textContent=fmtClock(t);
+  const q=activeCue(t);
+  cap.textContent=q?q.text:"";
+  cap.style.visibility=q&&q.text?"visible":"hidden";
+  // highlight active row
+  document.querySelectorAll(".cue").forEach(el=>{
+    el.classList.toggle("active", q && el.dataset.id===String(q.id));
+  });
+  if(!video.paused && !video.ended) requestAnimationFrame(tick);
+}
+video.addEventListener("play",()=>requestAnimationFrame(tick));
+video.addEventListener("timeupdate",()=>{ if(video.paused) tick(); });
+video.addEventListener("seeked",tick);
+window.addEventListener("resize",applyStyle);
+
+/* ---------- style controls ---------- */
+$("#sSize").oninput=e=>{style.size=+e.target.value;applyStyle();};
+$("#sPos").oninput=e=>{style.pos=+e.target.value;applyStyle();};
+$("#sBox").oninput=e=>{style.box=+e.target.value;applyStyle();};
+$("#sColor").oninput=e=>{style.color=e.target.value;$("#sColorV").textContent=e.target.value;applyStyle();};
+$("#sWeight").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  style.weight=+b.dataset.w;[...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));applyStyle();};
+$("#sOutline").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  style.outline=+b.dataset.o;[...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));applyStyle();};
+
+/* ---------- status ---------- */
+function setStatus(msg,kind){ // kind: "", "work", "err", "ok"
+  $("#statusMsg").textContent=msg;
+  $("#status").className="status"+(kind?" "+kind:"");
+}
+function setProgress(p){ // 0..1 or null to hide
+  const bar=$("#progress");
+  if(p==null){bar.classList.remove("show");return;}
+  bar.classList.add("show");
+  bar.querySelector("i").style.width=clamp(p*100,0,100)+"%";
+}
+
+/* ---------- cue list rendering ---------- */
+function renderCues(){
+  const box=$("#cues");
+  $("#count").textContent=cues.length+(cues.length===1?" line":" lines");
+  const hasCues=cues.length>0;
+  $("#srtBtn").disabled=!hasCues;
+  $("#vttBtn").disabled=!hasCues;
+  $("#burnBtn").disabled=!hasCues;
+  if(!hasCues){
+    box.innerHTML='<div class="empty">No subtitles yet.<br>Hit <code>Auto-transcribe</code> to generate them from the audio, or <code>Add line</code> to write your own.</div>';
+    return;
+  }
+  box.innerHTML="";
+  for(const q of cues){
+    const row=document.createElement("div");
+    row.className="cue";row.dataset.id=q.id;
+    row.innerHTML=`
+      <div class="times">
+        <input type="text" class="cstart" value="${fmtClock(q.start)}">
+        <span class="arrow">→</span>
+        <input type="text" class="cend" value="${fmtClock(q.end)}">
+        <button class="mini setS" title="Set start to playhead">⤓ in</button>
+        <button class="mini setE" title="Set end to playhead">⤓ out</button>
+        <button class="mini jump" title="Jump video here">▶</button>
+        <span class="spacer"><button class="mini del" title="Delete line">✕</button></span>
+      </div>
+      <textarea class="ctext" rows="2" placeholder="Caption text…">${q.text.replace(/</g,"&lt;")}</textarea>`;
+    // wire events
+    const sIn=row.querySelector(".cstart"), eIn=row.querySelector(".cend"), tIn=row.querySelector(".ctext");
+    tIn.addEventListener("input",()=>{q.text=tIn.value;});
+    const commitTime=()=>{
+      const ns=parseClock(sIn.value), ne=parseClock(eIn.value);
+      if(ns!=null)q.start=ns; if(ne!=null)q.end=ne;
+      if(q.end<q.start)q.end=q.start+0.5;
+      sortAndRender();
+    };
+    sIn.addEventListener("blur",commitTime);
+    eIn.addEventListener("blur",commitTime);
+    row.querySelector(".setS").onclick=()=>{q.start=video.currentTime;sIn.value=fmtClock(q.start);};
+    row.querySelector(".setE").onclick=()=>{q.end=video.currentTime;eIn.value=fmtClock(q.end);};
+    row.querySelector(".jump").onclick=()=>{video.currentTime=q.start;tick();};
+    row.querySelector(".del").onclick=()=>{cues=cues.filter(x=>x!==q);renderCues();tick();};
+    box.appendChild(row);
+  }
+}
+function sortAndRender(){ cues.sort((a,b)=>a.start-b.start); renderCues(); }
+
+$("#addBtn").onclick=()=>{
+  const t=video.currentTime||0;
+  cues.push({id:nextId++,start:t,end:Math.min((video.duration||t+2),t+2),text:""});
+  sortAndRender();
+  // focus the new line's textarea
+  const rows=document.querySelectorAll(".cue");
+  for(const r of rows){ if(+r.dataset.id===nextId-1){ r.querySelector(".ctext").focus(); r.scrollIntoView({block:"nearest"}); } }
+};
+
+/* ---------- export SRT / VTT ---------- */
+function download(name,text,type){
+  const blob=new Blob([text],{type});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function baseName(){ return (currentFile?currentFile.name.replace(/\.[^.]+$/,""):"subtitles"); }
+$("#srtBtn").onclick=()=>{
+  sortAndRender();
+  const out=cues.filter(q=>q.text.trim()).map((q,i)=>
+    `${i+1}\n${fmtStamp(q.start,",")} --> ${fmtStamp(q.end,",")}\n${q.text.trim()}\n`).join("\n");
+  download(baseName()+".srt",out,"text/plain");
+};
+$("#vttBtn").onclick=()=>{
+  sortAndRender();
+  const out="WEBVTT\n\n"+cues.filter(q=>q.text.trim()).map(q=>
+    `${fmtStamp(q.start,".")} --> ${fmtStamp(q.end,".")}\n${q.text.trim()}\n`).join("\n");
+  download(baseName()+".vtt",out,"text/vtt");
+};
+
+/* ---------- import SRT / VTT ---------- */
+function parseSubs(text){
+  text=text.replace(/^\uFEFF/,"").replace(/\r/g,"");
+  const stampRe=/(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->\s*(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}/;
+  const blocks=text.split(/\n\s*\n/);
+  const out=[];
+  for(let b of blocks){
+    b=b.trim();
+    if(!b||/^WEBVTT/i.test(b)) continue;
+    const lines=b.split("\n");
+    let ti=lines.findIndex(l=>stampRe.test(l));
+    if(ti<0) continue;
+    const mm=lines[ti].match(/((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})/);
+    if(!mm) continue;
+    const start=parseClock(mm[1]), end=parseClock(mm[2]);
+    const body=lines.slice(ti+1).join("\n").trim();
+    if(start==null||end==null||!body) continue;
+    out.push({id:nextId++,start,end,text:body});
+  }
+  return out;
+}
+$("#importBtn").onclick=()=>$("#subFile").click();
+$("#subFile").onchange=async(e)=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const parsed=parseSubs(await f.text());
+    if(!parsed.length){ setStatus("No subtitle lines found in that file.","err"); return; }
+    cues=parsed; sortAndRender(); tick();
+    setStatus(`Imported ${cues.length} lines from ${f.name}. Edit, style, then export or burn in.`,"ok");
+  }catch(err){ setStatus("Couldn't read that file: "+(err.message||err),"err"); }
+  e.target.value="";
+};
+
+
+/* ---------- auto transcribe via backend worker pool ---------- */
+async function backendTranscribe(file, model, language){
+  const fd=new FormData();
+  fd.append("file",file);
+  fd.append("model",model);
+  if(language) fd.append("language",language);
+  const r=await fetch("http://localhost:5174/api/transcribe",{method:"POST",body:fd});
+  if(!r.ok){ throw new Error((await r.json().catch(()=>({}))).error || ("HTTP "+r.status)); }
+  const {jobId}=await r.json();
+  // poll for progress
+  while(true){
+    await new Promise(res=>setTimeout(res,700));
+    const jr=await fetch("http://localhost:5174/api/jobs/"+jobId);
+    if(!jr.ok) throw new Error("Lost the job (HTTP "+jr.status+")");
+    const job=await jr.json();
+    if(job.status==="error") throw new Error(job.error||"transcription failed");
+    if(job.status==="done") return job.result;
+    const pct = job.progress ? ` ${Math.round(job.progress*100)}%` : "";
+    setStatus(`${job.status}${pct}…`,"work");
+    if(job.progress!=null) setProgress(job.progress);
+  }
+}
+
+$("#autoBtn").onclick=async()=>{
+  if(modelLoading) return;
+  if(!currentFile){ setStatus("Load a video first.","err"); return; }
+  modelLoading=true; $("#autoBtn").disabled=true;
+  try{
+    const model=$("#modelSel").value;
+    const language=model.endsWith(".en")?undefined:($("#langInput")?.value.trim()||undefined);
+    setStatus("Uploading to the local service…","work"); setProgress(0);
+    const result=await backendTranscribe(currentFile,model,language);
+    if(!result.cues||!result.cues.length){ setStatus("No clear speech detected. You can add lines by hand.","err"); return; }
+    cues=result.cues.map(c=>({id:nextId++,start:c.start,end:c.end,text:c.text}));
+    sortAndRender(); tick();
+    setStatus(`Done — ${cues.length} lines. Edit below, then export or burn in.`,"ok");
+  }catch(err){
+    const m=String(err&&err.message||err);
+    if(/failed to fetch|networkerror|load failed/i.test(m)){
+      setStatus("Can't reach the local service. Start it with: npm start — then open http://localhost:5174","err");
+    }else{
+      setStatus("Transcription failed: "+m+" — you can still add lines by hand.","err");
+    }
+  }finally{
+    setProgress(null); modelLoading=false; $("#autoBtn").disabled=false;
+  }
+};
+
+
+/* ---------- burn subtitles into video via backend ffmpeg ---------- */
+function buildSrt(){
+  sortAndRender();
+  return cues.filter(q=>q.text.trim()).map((q,i)=>
+    `${i+1}\n${fmtStamp(q.start,",")} --> ${fmtStamp(q.end,",")}\n${q.text.trim()}\n`).join("\n");
+}
+$("#burnBtn").onclick=async()=>{
+  if(!cues.length || !currentFile) return;
+  const btn=$("#burnBtn"); btn.disabled=true;
+  const mode = $("#burnMode") ? $("#burnMode").value : "soft";
+  setStatus(mode==="hard"?"Burning captions into the video…":"Muxing a subtitle track…","work");
+  try{
+    const fd=new FormData();
+    fd.append("file",currentFile);
+    fd.append("srt",buildSrt());
+    fd.append("mode",mode);
+    fd.append("fontSize",String(Math.round((style.size/100)*( video.videoWidth||1280 ))));
+    fd.append("color",style.color);
+    fd.append("outline",String(style.outline));
+    const r=await fetch("http://localhost:5174/api/burn",{method:"POST",body:fd});
+    if(!r.ok){ throw new Error((await r.json().catch(()=>({}))).error || ("HTTP "+r.status)); }
+    const blob=await r.blob();
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=baseName()+"-subtitled.mp4"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    setStatus("Saved your subtitled video (.mp4).","ok");
+  }catch(err){
+    const m=String(err&&err.message||err);
+    if(/failed to fetch|networkerror|load failed/i.test(m)){
+      setStatus("Can't reach the local service. Start it with npm start, then reload http://localhost:5174","err");
+    }else{
+      setStatus("Burn-in failed: "+m,"err");
+    }
+  }finally{ btn.disabled=false; }
+};
+
+/* ---------- init ---------- */
+applyStyle();
+renderCues();
+</script>
