@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Local subtitle generator: parallel Whisper transcription on a Node worker pool, with ffmpeg burn-in.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "debug": "node --inspect=9229 server.js",
+    "debug-brk": "node --inspect-brk=9229 server.js"
   },
   "engines": {
     "node": ">=18"

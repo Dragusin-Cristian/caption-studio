@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug backend",
+      "program": "${workspaceFolder}/backend/server.js",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development"
+      }
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to backend (npm run debug)",
+      "port": 9229,
+      "cwd": "${workspaceFolder}/backend",
+      "autoAttachChildProcesses": true,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
