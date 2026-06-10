@@ -6,8 +6,8 @@
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug=9229 --watch"
+    "dev": "nest start --watch",
+    "debug": "nest start --debug=9229 --watch"
   },
   "engines": {
     "node": ">=18"
