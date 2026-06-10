@@ -154,8 +154,11 @@ app.post("/api/burn", upload.single("file"), async (req, res) => {
       const outline = String(req.body.outline) === "1";
 
       // The frontend renders text at (fontSize/100) * videoWidth CSS pixels.
-      // ASS FontSize is in script pixels; match the video's pixel grid.
-      const fsPx = Math.max(12, Math.round((fontSize / 100) * videoWidth));
+      // ASS FontSize is in script pixels (libass default PlayResY=288, scaled
+      // to the video height), so convert video pixels -> script pixels.
+      const probed = await probeVideoDimensions(inPath);
+      const videoHeight = probed?.height || Math.round(videoWidth * 9 / 16);
+      const fsPx = Math.max(12, Math.round((fontSize / 100) * videoWidth * 288 / videoHeight));
 
       // ASS alpha is inverted: 00=opaque, FF=transparent.
       const alpha = Math.round((1 - boxOpacity / 100) * 255);
@@ -208,6 +211,19 @@ app.post("/api/burn", upload.single("file"), async (req, res) => {
     if (!res.headersSent) res.status(500).json({ error: String((e && e.message) || e) });
   }
 });
+
+function probeVideoDimensions(filePath) {
+  return new Promise((resolve) => {
+    const ff = spawn(FFMPEG, ["-i", filePath], { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    ff.stderr.on("data", (d) => { stderr += d.toString(); if (stderr.length > 16000) stderr = stderr.slice(-16000); });
+    ff.on("close", () => {
+      const m = /Stream[^\n]*Video[^\n]*?,\s*(\d{2,5})x(\d{2,5})/.exec(stderr);
+      resolve(m ? { width: +m[1], height: +m[2] } : null);
+    });
+    ff.on("error", () => resolve(null));
+  });
+}
 
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
