@@ -89,11 +89,6 @@ export function SubtitlesPanel(props: Props) {
         />
 
         <Hint>
-          <b>Transcription runs on the local service</b>, not in this tab — the audio is split into
-          segments and processed across several worker threads in parallel, so your browser stays
-          responsive. Bigger models are more accurate but slower; pick the language model for
-          non-English audio and optionally type the language.
-          <br /><br />
           <b>Burn into video</b> is done by ffmpeg on the backend. <b>Soft</b> adds a fast,
           lossless, toggleable subtitle track (recommended). <b>Hard</b> permanently draws the
           captions onto the picture (needs an ffmpeg built with libass). Output is an{' '}

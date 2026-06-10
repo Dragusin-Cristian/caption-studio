@@ -5,9 +5,7 @@ export type ModelOption = {
 };
 
 export const MODEL_OPTIONS: ReadonlyArray<ModelOption> = [
-  { value: 'Xenova/whisper-tiny.en',  label: 'English · fast',    isEnglishOnly: true  },
-  { value: 'Xenova/whisper-base.en',  label: 'English · accurate', isEnglishOnly: true  },
-  { value: 'Xenova/whisper-small.en', label: 'English · best',    isEnglishOnly: true  },
+  { value: 'Xenova/whisper-small.en', label: 'English',    isEnglishOnly: true  },
   { value: 'Xenova/whisper-base',     label: 'Other languages',   isEnglishOnly: false },
 ];
 
