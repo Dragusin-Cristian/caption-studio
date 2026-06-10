@@ -5,6 +5,7 @@ import { FFMPEG } from '../ffmpeg/ffmpeg.provider';
 export interface HardBurnOptions {
   fontSize?: string | number;
   pos?: string | number;
+  weight?: string | number;
   boxOpacity?: string | number;
   videoWidth?: string | number;
   color?: string;
@@ -47,6 +48,7 @@ export class BurnService {
   ): Promise<string[]> {
     const fontSize = Number(opts.fontSize) || 4.2;
     const pos = Math.max(0, Math.min(100, Number(opts.pos) || 5));
+    const bold = Number(opts.weight) >= 700 ? 1 : 0;
     const boxOpacity = Math.max(0, Math.min(100, Number(opts.boxOpacity) || 0));
     const videoWidth = Math.max(64, Number(opts.videoWidth) || 1280);
     const color = BurnService.srtColorFromHex(opts.color || '#f4c95d') || '&HFFFFFF';
@@ -65,7 +67,7 @@ export class BurnService {
       'FontName=Arial',
       `FontSize=${fsPx}`,
       `PrimaryColour=${color}`,
-      'Bold=1',
+      `Bold=${bold}`,
       'Alignment=2',
       `MarginV=${marginV}`,
       outline
