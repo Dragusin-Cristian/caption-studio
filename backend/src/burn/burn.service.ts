@@ -66,7 +66,7 @@ export class BurnService {
       'Alignment=2',
       outline
         ? 'BorderStyle=1,Outline=2,Shadow=1,OutlineColour=&H00000000'
-        : `BorderStyle=3,Outline=0,Shadow=0,BackColour=${backColour}`,
+        : `BorderStyle=3,Outline=${Math.max(2, Math.round(fsPx * 0.15))},Shadow=0,BackColour=${backColour},OutlineColour=${backColour}`,
     ].join(',');
 
     const escPath = srtPath
