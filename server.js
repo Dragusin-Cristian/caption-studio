@@ -112,48 +112,100 @@ function srtColorFromHex(hex) {
 
 app.post("/api/burn", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded." });
-  const srt = req.body.srt || "";
+  const srt = String(req.body.srt || "");
+  if (!srt.trim()) {
+    fs.promises.unlink(req.file.path).catch(() => {});
+    return res.status(400).json({ error: "No subtitles provided." });
+  }
   const mode = req.body.mode === "hard" ? "hard" : "soft";
+
+  const baseId = randomUUID();
   const inPath = req.file.path;
-  const srtPath = inPath + ".srt";
-  const outPath = inPath + (mode === "hard" ? ".hard.mp4" : ".soft.mp4");
+  const srtPath = path.join(os.tmpdir(), `cap-${baseId}.srt`);
+  const outPath = path.join(os.tmpdir(), `cap-${baseId}.mp4`);
+
+  const cleanup = () => {
+    fs.promises.unlink(inPath).catch(() => {});
+    fs.promises.unlink(srtPath).catch(() => {});
+    fs.promises.unlink(outPath).catch(() => {});
+  };
 
   try {
     await fs.promises.writeFile(srtPath, srt, "utf8");
 
     let args;
-    if (mode === "hard") {
-      const styleBits = ["Fontsize=" + (parseInt(req.body.fontSize, 10) || 24)];
-      const col = srtColorFromHex(req.body.color);
-      if (col) styleBits.push("PrimaryColour=" + col);
-      if (req.body.outline === "1") styleBits.push("BorderStyle=1", "Outline=2");
-      // escape the srt path for the filter graph
-      const safe = srtPath.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
-      args = ["-y", "-i", inPath, "-vf", `subtitles='${safe}':force_style='${styleBits.join(",")}'`,
-              "-c:a", "copy", outPath];
+    if (mode === "soft") {
+      args = [
+        "-y",
+        "-i", inPath,
+        "-i", srtPath,
+        "-map", "0", "-map", "1",
+        "-c", "copy",
+        "-c:s", "mov_text",
+        "-metadata:s:s:0", "language=eng",
+        "-disposition:s:0", "default",
+        outPath,
+      ];
     } else {
-      // soft: mux a selectable subtitle track. Stream copy = fast + low memory + lossless.
-      args = ["-y", "-i", inPath, "-i", srtPath, "-map", "0", "-map", "1",
-              "-c", "copy", "-c:s", "mov_text", outPath];
+      const fontSize = Number(req.body.fontSize) || 4.2;
+      const boxOpacity = Math.max(0, Math.min(100, Number(req.body.boxOpacity) || 0));
+      const videoWidth = Math.max(64, Number(req.body.videoWidth) || 1280);
+      const color = srtColorFromHex(req.body.color || "#f4c95d") || "&HFFFFFF";
+      const outline = String(req.body.outline) === "1";
+
+      // The frontend renders text at (fontSize/100) * videoWidth CSS pixels.
+      // ASS FontSize is in script pixels; match the video's pixel grid.
+      const fsPx = Math.max(12, Math.round((fontSize / 100) * videoWidth));
+
+      // ASS alpha is inverted: 00=opaque, FF=transparent.
+      const alpha = Math.round((1 - boxOpacity / 100) * 255);
+      const alphaHex = alpha.toString(16).padStart(2, "0").toUpperCase();
+      const backColour = `&H${alphaHex}000000`;
+
+      const style = [
+        "FontName=Arial",
+        `FontSize=${fsPx}`,
+        `PrimaryColour=${color}`,
+        "Bold=1",
+        "Alignment=2",
+        outline
+          ? "BorderStyle=1,Outline=2,Shadow=1,OutlineColour=&H00000000"
+          : `BorderStyle=3,Outline=0,Shadow=0,BackColour=${backColour}`,
+      ].join(",");
+
+      // Escape the subtitles path for the filtergraph: backslashes, colons, single quotes.
+      const escPath = srtPath
+        .replace(/\\/g, "\\\\")
+        .replace(/:/g, "\\:")
+        .replace(/'/g, "\\'");
+
+      args = [
+        "-y",
+        "-i", inPath,
+        "-vf", `subtitles='${escPath}':force_style='${style}'`,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "20",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "copy",
+        "-movflags", "+faststart",
+        outPath,
+      ];
     }
 
     await runFfmpeg(args);
+
     res.setHeader("Content-Type", "video/mp4");
     res.setHeader("Content-Disposition", 'attachment; filename="subtitled.mp4"');
+    const stat = await fs.promises.stat(outPath);
+    res.setHeader("Content-Length", String(stat.size));
     const stream = fs.createReadStream(outPath);
     stream.pipe(res);
     stream.on("close", cleanup);
-    stream.on("error", () => { cleanup(); if (!res.headersSent) res.status(500).end(); });
+    stream.on("error", () => { try { res.end(); } catch {} cleanup(); });
   } catch (e) {
     cleanup();
-    const hint = mode === "hard"
-      ? " (hard burn-in needs an ffmpeg built with libass; try mode=soft instead)"
-      : "";
-    res.status(500).json({ error: String((e && e.message) || e) + hint });
-  }
-
-  function cleanup() {
-    [inPath, srtPath, outPath].forEach((p) => fs.promises.unlink(p).catch(() => {}));
+    if (!res.headersSent) res.status(500).json({ error: String((e && e.message) || e) });
   }
 });
 
