@@ -1,11 +1,11 @@
-// worker.js — one worker process. Loads a Whisper model once, then transcribes
-// whatever audio segments the pool sends it. Runs as a forked child process.
+// whisper.worker.mjs — one worker process. Loads a Whisper model once, then
+// transcribes whatever audio segments the pool sends it. Runs as a forked
+// child process spawned by TranscriberPool.
 import { pipeline, env } from "@huggingface/transformers";
 
-env.allowLocalModels = false;           // pull from the HF hub (cached on disk after first run)
+env.allowLocalModels = false;
 if (process.env.WORKER_CACHE_DIR) env.cacheDir = process.env.WORKER_CACHE_DIR;
 
-// Load the model immediately; q8 weights keep memory per worker modest.
 const ready = pipeline("automatic-speech-recognition", process.env.WORKER_MODEL, { dtype: "q8" })
   .then((asr) => { process.send({ type: "ready" }); return asr; })
   .catch((e) => { process.send({ type: "error", error: String((e && e.message) || e) }); throw e; });
@@ -14,9 +14,9 @@ process.on("message", async (msg) => {
   if (!msg || msg.type !== "job") return;
   try {
     const asr = await ready;
-    const audio = new Float32Array(msg.pcm); // pcm arrives as ArrayBuffer via IPC structured clone
+    const audio = new Float32Array(msg.pcm);
     const opts = { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 };
-    if (msg.language) opts.language = msg.language; // only meaningful for multilingual models
+    if (msg.language) opts.language = msg.language;
     const out = await asr(audio, opts);
     const raw = out && out.chunks ? out.chunks : [];
     let cues = raw
