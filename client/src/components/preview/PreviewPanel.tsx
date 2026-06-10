@@ -4,7 +4,6 @@ import { CaptionOverlay } from './CaptionOverlay';
 import { Transport } from './Transport';
 import type { CaptionStyle, Cue } from '@/types';
 import { useCaptionFontSize } from '@/hooks/useCaptionFontSize';
-import type { RefObject } from 'react';
 
 const Stage = styled.div`
   position: relative;
@@ -22,7 +21,8 @@ const Stage = styled.div`
 `;
 
 type Props = {
-  videoRef: RefObject<HTMLVideoElement | null>;
+  video: HTMLVideoElement | null;
+  onVideoRef: (el: HTMLVideoElement | null) => void;
   src: string | null;
   style: CaptionStyle;
   activeCue: Cue | null;
@@ -30,14 +30,14 @@ type Props = {
   duration: number;
 };
 
-export function PreviewPanel({ videoRef, src, style, activeCue, currentTime, duration }: Props) {
-  const fontSizePx = useCaptionFontSize(videoRef, style.size);
+export function PreviewPanel({ video, onVideoRef, src, style, activeCue, currentTime, duration }: Props) {
+  const fontSizePx = useCaptionFontSize(video, style.size);
   return (
     <Panel>
       <PanelHeader>Preview</PanelHeader>
       <PanelBody>
         <Stage>
-          <video ref={videoRef} controls playsInline src={src ?? undefined} />
+          <video ref={onVideoRef} controls playsInline src={src ?? undefined} />
           <CaptionOverlay style={style} fontSizePx={fontSizePx} text={activeCue?.text ?? ''} />
         </Stage>
         <Transport current={currentTime} duration={duration} />

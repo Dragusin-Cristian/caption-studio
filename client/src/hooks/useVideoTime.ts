@@ -1,6 +1,6 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useState } from 'react';
 
-export function useVideoTime(videoRef: RefObject<HTMLVideoElement | null>): {
+export function useVideoTime(video: HTMLVideoElement | null): {
   currentTime: number;
   duration: number;
 } {
@@ -8,37 +8,36 @@ export function useVideoTime(videoRef: RefObject<HTMLVideoElement | null>): {
   const [duration, setDuration] = useState(0);
 
   useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
+    if (!video) return;
 
     let raf = 0;
     const tickRaf = () => {
-      setCurrentTime(v.currentTime);
-      if (!v.paused && !v.ended) raf = requestAnimationFrame(tickRaf);
+      setCurrentTime(video.currentTime);
+      if (!video.paused && !video.ended) raf = requestAnimationFrame(tickRaf);
     };
 
     const onPlay = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(tickRaf); };
-    const onPauseLike = () => { cancelAnimationFrame(raf); setCurrentTime(v.currentTime); };
-    const onMeta = () => setDuration(v.duration || 0);
+    const onPauseLike = () => { cancelAnimationFrame(raf); setCurrentTime(video.currentTime); };
+    const onMeta = () => setDuration(video.duration || 0);
 
-    v.addEventListener('play', onPlay);
-    v.addEventListener('playing', onPlay);
-    v.addEventListener('pause', onPauseLike);
-    v.addEventListener('seeked', onPauseLike);
-    v.addEventListener('timeupdate', onPauseLike);
-    v.addEventListener('loadedmetadata', onMeta);
-    if (!Number.isNaN(v.duration) && v.duration) setDuration(v.duration);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('playing', onPlay);
+    video.addEventListener('pause', onPauseLike);
+    video.addEventListener('seeked', onPauseLike);
+    video.addEventListener('timeupdate', onPauseLike);
+    video.addEventListener('loadedmetadata', onMeta);
+    if (!Number.isNaN(video.duration) && video.duration) setDuration(video.duration);
 
     return () => {
       cancelAnimationFrame(raf);
-      v.removeEventListener('play', onPlay);
-      v.removeEventListener('playing', onPlay);
-      v.removeEventListener('pause', onPauseLike);
-      v.removeEventListener('seeked', onPauseLike);
-      v.removeEventListener('timeupdate', onPauseLike);
-      v.removeEventListener('loadedmetadata', onMeta);
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('playing', onPlay);
+      video.removeEventListener('pause', onPauseLike);
+      video.removeEventListener('seeked', onPauseLike);
+      video.removeEventListener('timeupdate', onPauseLike);
+      video.removeEventListener('loadedmetadata', onMeta);
     };
-  }, [videoRef]);
+  }, [video]);
 
   return { currentTime, duration };
 }

@@ -1,27 +1,26 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useState } from 'react';
 
 export function useCaptionFontSize(
-  videoRef: RefObject<HTMLVideoElement | null>,
+  video: HTMLVideoElement | null,
   sizePercent: number,
 ): number {
   const [pxSize, setPxSize] = useState(() => Math.max(11, (sizePercent / 100) * 640));
 
   useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
+    if (!video) return;
     const recompute = () => {
-      const w = v.clientWidth || 640;
+      const w = video.clientWidth || 640;
       setPxSize(Math.max(11, (sizePercent / 100) * w));
     };
     recompute();
     const ro = new ResizeObserver(recompute);
-    ro.observe(v);
+    ro.observe(video);
     window.addEventListener('resize', recompute);
     return () => {
       ro.disconnect();
       window.removeEventListener('resize', recompute);
     };
-  }, [videoRef, sizePercent]);
+  }, [video, sizePercent]);
 
   return pxSize;
 }

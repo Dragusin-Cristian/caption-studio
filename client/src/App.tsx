@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
 import { DropZone } from '@/components/DropZone';
 import { Editor } from '@/components/Editor';
@@ -44,14 +44,16 @@ export function App() {
   const [burnMode, setBurnMode] = useState<BurnMode>(DEFAULT_BURN_MODE);
   const [burnBusy, setBurnBusy] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const videoUrl = useVideoUrl(file);
-  const { currentTime, duration } = useVideoTime(videoRef);
+  const { currentTime, duration } = useVideoTime(video);
   const { cues, addCue, updateCue, deleteCue, replaceAll } = useCues();
   const { state: transcribe, start: startTranscribe } = useTranscribeJob();
 
   const activeCue = useMemo(() => {
-    for (const q of cues) if (currentTime >= q.start && currentTime < q.end) return q;
+    for (const q of cues) {
+      if (currentTime >= q.start && currentTime < q.end) return q;
+    }
     return null;
   }, [cues, currentTime]);
 
@@ -66,16 +68,14 @@ export function App() {
   }, []);
 
   const handleAddLine = useCallback(() => {
-    const v = videoRef.current;
-    const t = v?.currentTime ?? 0;
-    const maxEnd = v?.duration ?? 0;
+    const t = video?.currentTime ?? 0;
+    const maxEnd = video?.duration ?? 0;
     addCue(t, NEW_CUE_DURATION, maxEnd);
-  }, [addCue]);
+  }, [addCue, video]);
 
   const handleJump = useCallback((time: number) => {
-    const v = videoRef.current;
-    if (v) v.currentTime = time;
-  }, []);
+    if (video) video.currentTime = time;
+  }, [video]);
 
   const handleImport = useCallback(
     async (subFile: File) => {
@@ -139,14 +139,13 @@ export function App() {
         burnMode === 'hard' ? 'Burning captions into the video…' : 'Muxing a subtitle track…',
     });
     try {
-      const v = videoRef.current;
       const blob = await burnVideo({
         file,
         srt: buildSrt(cues),
         mode: burnMode,
         style,
-        videoWidth: v?.videoWidth || 1280,
-        videoHeight: v?.videoHeight || 720,
+        videoWidth: video?.videoWidth || 1280,
+        videoHeight: video?.videoHeight || 720,
       });
       downloadBlob(`${baseName(file)}-subtitled.mp4`, blob);
       setStatus({ kind: 'ok', message: 'Saved your subtitled video (.mp4).' });
@@ -155,7 +154,7 @@ export function App() {
     } finally {
       setBurnBusy(false);
     }
-  }, [file, cues, burnMode, style]);
+  }, [file, cues, burnMode, style, video]);
 
   const transcribeStatus: Status = transcribe.running
     ? { kind: 'work', message: transcribe.status }
@@ -171,7 +170,8 @@ export function App() {
           left={
             <>
               <PreviewPanel
-                videoRef={videoRef}
+                video={video}
+                onVideoRef={setVideo}
                 src={videoUrl}
                 style={style}
                 activeCue={activeCue}
