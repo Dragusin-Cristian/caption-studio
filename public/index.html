@@ -379,6 +379,7 @@ function tick(){
   if(!video.paused && !video.ended) requestAnimationFrame(tick);
 }
 video.addEventListener("play",()=>requestAnimationFrame(tick));
+video.addEventListener("playing",()=>requestAnimationFrame(tick));
 video.addEventListener("timeupdate",()=>{ if(video.paused) tick(); });
 video.addEventListener("seeked",tick);
 window.addEventListener("resize",applyStyle);
@@ -581,7 +582,10 @@ $("#burnBtn").onclick=async()=>{
     fd.append("file",currentFile);
     fd.append("srt",buildSrt());
     fd.append("mode",mode);
-    fd.append("fontSize",String(Math.round((style.size/100)*( video.videoWidth||1280 ))));
+    fd.append("fontSize",String(style.size));
+    fd.append("boxOpacity",String(style.box));
+    fd.append("videoWidth",String(video.videoWidth||1280));
+    fd.append("videoHeight",String(video.videoHeight||720));
     fd.append("color",style.color);
     fd.append("outline",String(style.outline));
     const r=await fetch("http://localhost:5174/api/burn",{method:"POST",body:fd});
