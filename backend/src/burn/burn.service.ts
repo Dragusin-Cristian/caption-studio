@@ -4,6 +4,7 @@ import { FFMPEG } from '../ffmpeg/ffmpeg.provider';
 
 export interface HardBurnOptions {
   fontSize?: string | number;
+  pos?: string | number;
   boxOpacity?: string | number;
   videoWidth?: string | number;
   color?: string;
@@ -45,6 +46,7 @@ export class BurnService {
     opts: HardBurnOptions,
   ): Promise<string[]> {
     const fontSize = Number(opts.fontSize) || 4.2;
+    const pos = Math.max(0, Math.min(100, Number(opts.pos) || 5));
     const boxOpacity = Math.max(0, Math.min(100, Number(opts.boxOpacity) || 0));
     const videoWidth = Math.max(64, Number(opts.videoWidth) || 1280);
     const color = BurnService.srtColorFromHex(opts.color || '#f4c95d') || '&HFFFFFF';
@@ -53,6 +55,7 @@ export class BurnService {
     const probed = await this.probeVideoDimensions(inPath);
     const videoHeight = probed?.height || Math.round((videoWidth * 9) / 16);
     const fsPx = Math.max(12, Math.round(((fontSize / 100) * videoWidth * 288) / videoHeight));
+    const marginV = Math.round((pos / 100) * 288);
 
     const alpha = Math.round((1 - boxOpacity / 100) * 255);
     const alphaHex = alpha.toString(16).padStart(2, '0').toUpperCase();
@@ -64,6 +67,7 @@ export class BurnService {
       `PrimaryColour=${color}`,
       'Bold=1',
       'Alignment=2',
+      `MarginV=${marginV}`,
       outline
         ? 'BorderStyle=1,Outline=2,Shadow=1,OutlineColour=&H00000000'
         : `BorderStyle=3,Outline=${Math.max(2, Math.round(fsPx * 0.15))},Shadow=0,BackColour=${backColour},OutlineColour=${backColour}`,

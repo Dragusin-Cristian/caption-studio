@@ -23,6 +23,7 @@ export async function burnVideo({
   fd.append('srt', srt);
   fd.append('mode', mode);
   fd.append('fontSize', String(style.size));
+  fd.append('pos', String(style.pos));
   fd.append('boxOpacity', String(style.box));
   fd.append('videoWidth', String(videoWidth));
   fd.append('videoHeight', String(videoHeight));
