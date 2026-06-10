@@ -9,7 +9,6 @@ export interface HardBurnOptions {
   boxOpacity?: string | number;
   videoWidth?: string | number;
   color?: string;
-  outline?: string;
 }
 
 @Injectable()
@@ -52,7 +51,6 @@ export class BurnService {
     const boxOpacity = Math.max(0, Math.min(100, Number(opts.boxOpacity) || 0));
     const videoWidth = Math.max(64, Number(opts.videoWidth) || 1280);
     const color = BurnService.srtColorFromHex(opts.color || '#f4c95d') || '&HFFFFFF';
-    const outline = String(opts.outline) === '1';
 
     const probed = await this.probeVideoDimensions(inPath);
     const videoHeight = probed?.height || Math.round((videoWidth * 9) / 16);
@@ -70,9 +68,7 @@ export class BurnService {
       `Bold=${bold}`,
       'Alignment=2',
       `MarginV=${marginV}`,
-      outline
-        ? 'BorderStyle=1,Outline=2,Shadow=1,OutlineColour=&H00000000'
-        : `BorderStyle=3,Outline=${Math.max(2, Math.round(fsPx * 0.15))},Shadow=0,BackColour=${backColour},OutlineColour=${backColour}`,
+      `BorderStyle=3,Outline=${Math.max(2, Math.round(fsPx * 0.15))},Shadow=0,BackColour=${backColour},OutlineColour=${backColour}`,
     ].join(',');
 
     const escPath = srtPath

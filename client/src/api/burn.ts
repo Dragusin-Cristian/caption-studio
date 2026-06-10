@@ -29,7 +29,6 @@ export async function burnVideo({
   fd.append('videoHeight', String(videoHeight));
   fd.append('color', style.color);
   fd.append('weight', String(style.weight));
-  fd.append('outline', String(style.outline));
 
   const r = await fetch(endpoints.burn, { method: 'POST', body: fd });
   if (!r.ok) {

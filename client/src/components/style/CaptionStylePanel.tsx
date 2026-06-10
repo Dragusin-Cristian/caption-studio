@@ -31,11 +31,6 @@ const WEIGHT_OPTIONS = [
   { value: 700 as const, label: 'Bold' },
 ];
 
-const OUTLINE_OPTIONS = [
-  { value: 0 as const, label: 'Off' },
-  { value: 1 as const, label: 'On' },
-];
-
 type Props = {
   value: CaptionStyle;
   onChange: (patch: Partial<CaptionStyle>) => void;
@@ -97,15 +92,6 @@ export function CaptionStylePanel({ value, onChange }: Props) {
               options={WEIGHT_OPTIONS}
               value={value.weight}
               onChange={(weight) => onChange({ weight })}
-            />
-          </Field>
-
-          <Field>
-            <Label>Outline</Label>
-            <SegmentedControl
-              options={OUTLINE_OPTIONS}
-              value={value.outline}
-              onChange={(outline) => onChange({ outline })}
             />
           </Field>
         </Controls>

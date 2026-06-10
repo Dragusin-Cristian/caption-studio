@@ -7,5 +7,4 @@ export interface BurnBody {
   boxOpacity?: string | number;
   videoWidth?: string | number;
   color?: string;
-  outline?: string;
 }
