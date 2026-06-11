@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '@/design-system/primitives/Button';
 import { Select } from '@/design-system/primitives/Select';
@@ -14,6 +15,7 @@ type Props = {
   canExport: boolean;
   burnMode: BurnMode;
   burnBusy: boolean;
+  linkedInPrompt: string;
   onBurnModeChange: (mode: BurnMode) => void;
   onExportSrt: () => void;
   onExportVtt: () => void;
@@ -24,11 +26,24 @@ export function ExportBar({
   canExport,
   burnMode,
   burnBusy,
+  linkedInPrompt,
   onBurnModeChange,
   onExportSrt,
   onExportVtt,
   onBurn,
 }: Props) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLinkedIn = async () => {
+    try {
+      await navigator.clipboard.writeText(linkedInPrompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard unavailable; silently ignore
+    }
+  };
+
   return (
     <Row>
       <Button $variant="ghost" type="button" disabled={!canExport} onClick={onExportSrt}>
@@ -36,6 +51,15 @@ export function ExportBar({
       </Button>
       <Button $variant="ghost" type="button" disabled={!canExport} onClick={onExportVtt}>
         Export .vtt
+      </Button>
+      <Button
+        $variant="ghost"
+        type="button"
+        disabled={!canExport}
+        onClick={handleCopyLinkedIn}
+        title="Copies the transcript prefixed with a prompt asking Claude to write a LinkedIn post."
+      >
+        {copied ? 'Copied!' : 'Copy LinkedIn prompt'}
       </Button>
       <Select
         title="Soft = fast, toggleable track. Hard = permanently drawn on the picture."

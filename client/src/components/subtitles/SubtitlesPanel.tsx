@@ -37,6 +37,7 @@ type Props = {
 
   burnMode: BurnMode;
   burnBusy: boolean;
+  linkedInPrompt: string;
   onBurnModeChange: (mode: BurnMode) => void;
   onExportSrt: () => void;
   onExportVtt: () => void;
@@ -71,6 +72,7 @@ export function SubtitlesPanel(props: Props) {
           canExport={hasCues}
           burnMode={props.burnMode}
           burnBusy={props.burnBusy}
+          linkedInPrompt={props.linkedInPrompt}
           onBurnModeChange={props.onBurnModeChange}
           onExportSrt={props.onExportSrt}
           onExportVtt={props.onExportVtt}

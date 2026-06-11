@@ -122,6 +122,22 @@ export function App() {
     }
   }, [file, model, language, startTranscribe, replaceAll]);
 
+  const linkedInPrompt = useMemo(() => {
+    const script = cues
+      .map((c) => c.text.trim())
+      .filter(Boolean)
+      .join(' ');
+    if (!script) return '';
+    return (
+      'Write a LinkedIn post about the content of this video. ' +
+      'Use the transcript below as the source material. Keep the tone professional ' +
+      'and engaging, highlight the key takeaways, and end with a question or call to ' +
+      'action that invites discussion.\n\n' +
+      'Transcript:\n' +
+      script
+    );
+  }, [cues]);
+
   const handleExportSrt = useCallback(() => {
     downloadText(`${baseName(file)}.srt`, buildSrt(cues), 'text/plain');
   }, [cues, file]);
@@ -197,6 +213,7 @@ export function App() {
               onImport={handleImport}
               burnMode={burnMode}
               burnBusy={burnBusy}
+              linkedInPrompt={linkedInPrompt}
               onBurnModeChange={setBurnMode}
               onExportSrt={handleExportSrt}
               onExportVtt={handleExportVtt}
