@@ -17,6 +17,7 @@ import { DEFAULT_STYLE, DEFAULT_BURN_MODE, NEW_CUE_DURATION } from '@/config/def
 import { DEFAULT_MODEL, MODEL_OPTIONS } from '@/config/models';
 import { NETWORK_ERROR_RE } from '@/config/api';
 import type { BurnMode, CaptionStyle, Status } from '@/types';
+import { getPostPrompt } from './lib/postPrompt';
 
 const Wrap = styled.div`
   max-width: ${({ theme }) => theme.size.contentMaxWidth};
@@ -128,14 +129,7 @@ export function App() {
       .filter(Boolean)
       .join(' ');
     if (!script) return '';
-    return (
-      'Write a LinkedIn post about the content of this video. ' +
-      'Use the transcript below as the source material. Keep the tone professional ' +
-      'and engaging, highlight the key takeaways, and end with a question or call to ' +
-      'action that invites discussion.\n\n' +
-      'Transcript:\n' +
-      script
-    );
+    return getPostPrompt(script);
   }, [cues]);
 
   const handleExportSrt = useCallback(() => {
