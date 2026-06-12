@@ -18,6 +18,7 @@ import { DEFAULT_MODEL, MODEL_OPTIONS } from '@/config/models';
 import { NETWORK_ERROR_RE } from '@/config/api';
 import type { BurnMode, CaptionStyle, Status } from '@/types';
 import { getPostPrompt } from './lib/postPrompt';
+import { uploadVideoToS3 } from './api/upload';
 
 const Wrap = styled.div`
   max-width: ${({ theme }) => theme.size.contentMaxWidth};
@@ -107,6 +108,7 @@ export function App() {
       return;
     }
     try {
+      const fileKey = await uploadVideoToS3(file)
       const lang = isEnglishOnlyModel(model) ? undefined : language.trim() || undefined;
       const result = await startTranscribe(file, model, lang);
       if (!result.cues?.length) {
