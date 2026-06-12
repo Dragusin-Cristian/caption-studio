@@ -1,7 +1,7 @@
-# Lambda Migration Draft — SST + whisper-small.en q8
+# Lambda Migration Draft — CDK + whisper-small.en q8
 
 Design draft for migrating the NestJS backend (currently a forked-worker pool) to
-AWS Lambda via SST, with one worker invocation per audio segment.
+AWS Lambda via CDK, with one worker invocation per audio segment.
 
 ## Why this shape
 
@@ -63,94 +63,158 @@ backend/
   docker/
     orchestrator.Dockerfile
     worker.Dockerfile
-sst.config.ts                   ← new
+infra/                          ← new: CDK app
+  bin/
+    caption-studio.ts           ← CDK entry
+  lib/
+    caption-studio-stack.ts     ← the stack
+  cdk.json
+  package.json
 ```
 
 Keep `src/` so `npm run dev` still works locally with the fork-based pool. The `lambda/` handlers reuse `subtitles.util.ts`, `audio.service.ts` logic, and the worker body from `workers/whisper.worker.mjs` — just unwrapped from NestJS DI.
 
-## `sst.config.ts`
+## `infra/lib/caption-studio-stack.ts`
 
 ```ts
-/// <reference path="./.sst/platform/config.d.ts" />
+import * as cdk from "aws-cdk-lib";
+import { Construct } from "constructs";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3n from "aws-cdk-lib/aws-s3-notifications";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as logs from "aws-cdk-lib/aws-logs";
+import * as path from "node:path";
 
-export default $config({
-  app(input) {
-    return {
-      name: "caption-studio",
-      home: "aws",
-      removal: input?.stage === "production" ? "retain" : "remove",
-    };
-  },
-  async run() {
-    const uploads = new sst.aws.Bucket("Uploads");
-    const chunks = new sst.aws.Bucket("Chunks", {
+export class CaptionStudioStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    const uploads = new s3.Bucket(this, "Uploads", {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const chunks = new s3.Bucket(this, "Chunks", {
       // chunks are throwaway — expire after a day
-      transform: {
-        bucket: (args) => {
-          args.lifecycleRules = [{ id: "expire", enabled: true, expiration: { days: 1 } }];
-        },
+      lifecycleRules: [{ expiration: cdk.Duration.days(1) }],
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const results = new s3.Bucket(this, "Results", {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const jobs = new dynamodb.Table(this, "Jobs", {
+      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: "expiresAt",
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const backendRoot = path.resolve(__dirname, "../../backend");
+
+    const worker = new lambda.DockerImageFunction(this, "Worker", {
+      code: lambda.DockerImageCode.fromImageAsset(backendRoot, {
+        file: "docker/worker.Dockerfile",
+      }),
+      memorySize: 3008,
+      timeout: cdk.Duration.minutes(5),
+      architecture: lambda.Architecture.ARM_64,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      environment: {
+        WHISPER_MODEL: "Xenova/whisper-small.en",
+        CHUNKS_BUCKET: chunks.bucketName,
       },
     });
-    const results = new sst.aws.Bucket("Results");
+    chunks.grantRead(worker);
 
-    const jobs = new sst.aws.Dynamo("Jobs", {
-      fields: { id: "string" },
-      primaryIndex: { hashKey: "id" },
-      ttl: "expiresAt",
+    // Optional: keep one warm to avoid first-request cold start.
+    new lambda.Alias(this, "WorkerLive", {
+      aliasName: "live",
+      version: worker.currentVersion,
+      provisionedConcurrentExecutions: 1,
     });
 
-    const worker = new sst.aws.Function("Worker", {
-      handler: "backend/lambda/worker.handler",
-      image: { dockerfile: "backend/docker/worker.Dockerfile" },
-      memory: "3008 MB",
-      timeout: "5 minutes",
-      architecture: "arm64",
-      link: [chunks],
-      environment: { WHISPER_MODEL: "Xenova/whisper-small.en" },
-      // Optional: keep one warm to avoid first-request cold start.
-      // provisioned: 1,
+    const orchestrator = new lambda.DockerImageFunction(this, "Orchestrator", {
+      code: lambda.DockerImageCode.fromImageAsset(backendRoot, {
+        file: "docker/orchestrator.Dockerfile",
+      }),
+      memorySize: 2048,
+      timeout: cdk.Duration.minutes(10),
+      architecture: lambda.Architecture.ARM_64,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      environment: {
+        UPLOADS_BUCKET: uploads.bucketName,
+        CHUNKS_BUCKET: chunks.bucketName,
+        RESULTS_BUCKET: results.bucketName,
+        JOBS_TABLE: jobs.tableName,
+        WORKER_FN: worker.functionName,
+      },
+    });
+    uploads.grantRead(orchestrator);
+    chunks.grantWrite(orchestrator);
+    results.grantWrite(orchestrator);
+    jobs.grantWriteData(orchestrator);
+    worker.grantInvoke(orchestrator);
+
+    uploads.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(orchestrator),
+    );
+
+    const api = new lambda.Function(this, "Api", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "lambda/api.handler",
+      code: lambda.Code.fromAsset(path.join(backendRoot, "dist")),
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(30),
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      environment: {
+        UPLOADS_BUCKET: uploads.bucketName,
+        RESULTS_BUCKET: results.bucketName,
+        JOBS_TABLE: jobs.tableName,
+      },
+    });
+    uploads.grantPut(api);
+    results.grantRead(api);
+    jobs.grantReadData(api);
+
+    const apiUrl = api.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+      cors: { allowedOrigins: ["*"], allowedMethods: [lambda.HttpMethod.ALL] },
     });
 
-    const orchestrator = new sst.aws.Function("Orchestrator", {
-      handler: "backend/lambda/orchestrator.handler",
-      image: { dockerfile: "backend/docker/orchestrator.Dockerfile" },
-      memory: "2048 MB",
-      timeout: "10 minutes",
-      architecture: "arm64",
-      link: [uploads, chunks, results, jobs, worker],
-      environment: { WORKER_FN: worker.name },
-    });
+    new cdk.CfnOutput(this, "ApiUrl", { value: apiUrl.url });
+  }
+}
+```
 
-    uploads.notify({
-      notifications: [
-        { name: "OnUpload", function: orchestrator.arn, events: ["s3:ObjectCreated:*"] },
-      ],
-    });
+`infra/bin/caption-studio.ts`:
 
-    const api = new sst.aws.Function("Api", {
-      handler: "backend/lambda/api.handler",
-      memory: "512 MB",
-      timeout: "30 seconds",
-      link: [uploads, results, jobs],
-      url: { cors: { allowOrigins: ["*"] } },
-    });
+```ts
+#!/usr/bin/env node
+import * as cdk from "aws-cdk-lib";
+import { CaptionStudioStack } from "../lib/caption-studio-stack";
 
-    return { apiUrl: api.url };
-  },
+const app = new cdk.App();
+new CaptionStudioStack(app, "CaptionStudio", {
+  env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
 });
 ```
 
-Notes on the SST v3 surface:
+Notes on the CDK surface:
 
-- `sst.aws.Function` with `image.dockerfile` deploys a container image — the only way to fit a 250 MB model.
-- `link: [worker]` on the orchestrator grants `lambda:InvokeFunction` and injects `Resource.Worker.name` so you don't hardcode ARNs.
-- If the account has trouble with `provisioned: 1`, drop it — first request just eats a one-time cold start.
+- `DockerImageFunction` + `DockerImageCode.fromImageAsset()` is the only way to fit a 250 MB model — CDK builds the image locally and pushes to the per-account CDK ECR repo automatically (`cdk bootstrap` creates it).
+- `worker.grantInvoke(orchestrator)` adds the `lambda:InvokeFunction` IAM statement; `xxx.grantRead/Write/...` for buckets and the DDB table do the same for those. Bucket/table names flow through as env vars instead of SST's `Resource.X.name` injection.
+- If the account has trouble with `provisionedConcurrentExecutions: 1` on the alias, drop the alias entirely — first request just eats a one-time cold start.
 
 ## `lambda/api.ts` (presigned upload + status poll)
 
 ```ts
-import { Resource } from "sst";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
@@ -158,6 +222,9 @@ import { randomUUID } from "node:crypto";
 
 const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+
+const UPLOADS_BUCKET = process.env.UPLOADS_BUCKET!;
+const JOBS_TABLE = process.env.JOBS_TABLE!;
 
 export async function handler(event: any) {
   const path = event.requestContext.http.path;
@@ -170,7 +237,7 @@ export async function handler(event: any) {
     const uploadUrl = await getSignedUrl(
       s3,
       new PutObjectCommand({
-        Bucket: Resource.Uploads.name,
+        Bucket: UPLOADS_BUCKET,
         Key: key,
         Metadata: { jobid: jobId, model, language: language || "" },
       }),
@@ -181,7 +248,7 @@ export async function handler(event: any) {
 
   if (method === "GET" && path.startsWith("/api/jobs/")) {
     const id = path.split("/").pop();
-    const r = await ddb.send(new GetCommand({ TableName: Resource.Jobs.name, Key: { id } }));
+    const r = await ddb.send(new GetCommand({ TableName: JOBS_TABLE, Key: { id } }));
     return json(r.Item ?? { status: "unknown" });
   }
 
@@ -200,9 +267,8 @@ The client uploads directly to S3 with the presigned URL, including `x-amz-meta-
 ## `lambda/orchestrator.ts` (replaces `TranscriptionService.run`)
 
 ```ts
-import { Resource } from "sst";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
-import { S3Client, GetObjectCommand, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { makeSegments, mergeCues, toSrt, toVtt, type Cue } from "../src/transcription/subtitles.util";
@@ -211,16 +277,22 @@ const lambda = new LambdaClient({});
 const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
+const UPLOADS_BUCKET = process.env.UPLOADS_BUCKET!;
+const CHUNKS_BUCKET = process.env.CHUNKS_BUCKET!;
+const RESULTS_BUCKET = process.env.RESULTS_BUCKET!;
+const JOBS_TABLE = process.env.JOBS_TABLE!;
+const WORKER_FN = process.env.WORKER_FN!;
+
 export async function handler(event: any) {
   for (const record of event.Records) {
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
-    const head = await s3.send(new HeadObjectCommand({ Bucket: Resource.Uploads.name, Key: key }));
+    const head = await s3.send(new HeadObjectCommand({ Bucket: UPLOADS_BUCKET, Key: key }));
     const jobId = head.Metadata!.jobid;
     const language = head.Metadata!.language || undefined;
 
     try {
       await setStatus(jobId, "decoding", 0);
-      const inputUrl = `s3://${Resource.Uploads.name}/${key}`;
+      const inputUrl = `s3://${UPLOADS_BUCKET}/${key}`;
       const pcm = await extractPcmFromS3(inputUrl);
       const segments = makeSegments(pcm);
 
@@ -231,12 +303,12 @@ export async function handler(event: any) {
         segments.map(async (seg, idx) => {
           const chunkKey = `${jobId}/${idx}.f32`;
           await s3.send(new PutObjectCommand({
-            Bucket: Resource.Chunks.name,
+            Bucket: CHUNKS_BUCKET,
             Key: chunkKey,
             Body: Buffer.from(seg.pcm.buffer, seg.pcm.byteOffset, seg.pcm.byteLength),
           }));
           const r = await lambda.send(new InvokeCommand({
-            FunctionName: Resource.Worker.name,
+            FunctionName: WORKER_FN,
             Payload: Buffer.from(JSON.stringify({
               chunkKey, offset: seg.start, language,
             })),
@@ -252,7 +324,7 @@ export async function handler(event: any) {
       const cues = mergeCues(perSegment);
       const resultKey = `${jobId}.json`;
       await s3.send(new PutObjectCommand({
-        Bucket: Resource.Results.name,
+        Bucket: RESULTS_BUCKET,
         Key: resultKey,
         Body: JSON.stringify({ cues, srt: toSrt(cues), vtt: toVtt(cues) }),
         ContentType: "application/json",
@@ -279,7 +351,7 @@ async function setStatus(
   error?: string,
 ) {
   await ddb.send(new UpdateCommand({
-    TableName: Resource.Jobs.name,
+    TableName: JOBS_TABLE,
     Key: { id },
     UpdateExpression: "set #s=:s, progress=:p, segments=:n, resultKey=:r, #e=:e, expiresAt=:ttl",
     ExpressionAttributeNames: { "#s": "status", "#e": "error" },
@@ -300,7 +372,6 @@ Structure mirrors `TranscriptionService.run()` exactly — same phases, same `me
 ## `lambda/worker.ts` (one segment, one invocation)
 
 ```ts
-import { Resource } from "sst";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { pipeline, env } from "@huggingface/transformers";
 
@@ -309,6 +380,8 @@ env.localModelPath = "/var/task/models";
 env.cacheDir = "/tmp";
 
 const s3 = new S3Client({});
+const CHUNKS_BUCKET = process.env.CHUNKS_BUCKET!;
+
 let asrPromise: ReturnType<typeof pipeline> | null = null;
 function asr() {
   return (asrPromise ??= pipeline(
@@ -323,7 +396,7 @@ void asr();
 export async function handler(event: { chunkKey: string; offset: number; language?: string }) {
   try {
     const obj = await s3.send(new GetObjectCommand({
-      Bucket: Resource.Chunks.name,
+      Bucket: CHUNKS_BUCKET,
       Key: event.chunkKey,
     }));
     const buf = Buffer.from(await obj.Body!.transformToByteArray());
@@ -393,11 +466,26 @@ CMD ["lambda/orchestrator.handler"]
 
 `ffmpeg-static` doesn't ship arm64 Linux binaries reliably; safer to grab a static ffmpeg build for arm64 manually, or switch this image to `x86_64`. The orchestrator doesn't need arm64 cost savings as much as the worker does (workers are where 90%+ of the GB-seconds get burned).
 
+## Deploy workflow
+
+```bash
+# one-time per account/region
+cd infra && npx cdk bootstrap
+
+# build backend (TS → dist/ used by both Dockerfiles + the api zip)
+cd ../backend && npm run build
+
+# deploy
+cd ../infra && npx cdk deploy
+```
+
+`cdk deploy` builds the Docker images locally, pushes to the CDK-managed ECR repo, and creates/updates the CloudFormation stack. The `ApiUrl` output is the function URL to point the client at.
+
 ## Verify before going further
 
 1. **whisper-small.en q8 actually fits and runs on arm64 Lambda.** The transformers.js ONNX backend has arm64 native binaries, but worth confirming with a tiny smoke test before sinking time into the full build. If arm64 is rocky, fall back to x86_64 — costs ~25% more but isn't a blocker.
 2. **Per-segment payload size.** Cues returned via `lambda:Invoke` response are small (text + timestamps), well under the 6 MB limit. PCM goes via S3, which is the right call.
-3. **Concurrency limits.** Default account Lambda concurrency is 1000 — plenty for ≤50 chunks per file. If processing many files at once, set a per-function reserved concurrency on the worker so a single big job can't starve the rest.
+3. **Concurrency limits.** Default account Lambda concurrency is 1000 — plenty for ≤50 chunks per file. If processing many files at once, set `reservedConcurrentExecutions` on the worker so a single big job can't starve the rest.
 
 ## Open questions / next decisions
 
