@@ -7,16 +7,22 @@ export async function startTranscribe(
   language?: string,
   signal?: AbortSignal,
 ): Promise<{ jobId: string }> {
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('model', model);
-  if (language) fd.append('language', language);
-  const r = await fetch(endpoints.transcribe, { method: 'POST', body: fd, signal });
+  const r = await fetch(endpoints.transcribe, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ model, language }),
+    signal,
+  });
   if (!r.ok) {
     const msg = await r.json().catch(() => ({}));
     throw new Error((msg as { error?: string }).error || `HTTP ${r.status}`);
   }
-  return r.json();
+  const { jobId, uploadUrl } = (await r.json()) as { jobId: string; uploadUrl: string };
+
+  const put = await fetch(uploadUrl, { method: 'PUT', body: file, signal });
+  if (!put.ok) throw new Error(`Upload failed (HTTP ${put.status})`);
+
+  return { jobId };
 }
 
 export async function getJob(jobId: string, signal?: AbortSignal): Promise<Job> {

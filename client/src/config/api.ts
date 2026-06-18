@@ -1,10 +1,11 @@
-export const BACKEND_URL = 'http://localhost:5174';
+export const BACKEND_URL =
+  import.meta.env.VITE_API_URL ||
+  'https://5qxkyfbma5akubwmb2sfseanby0edjra.lambda-url.eu-central-1.on.aws';
 
 export const endpoints = {
   transcribe: `${BACKEND_URL}/api/transcribe`,
   job: (id: string) => `${BACKEND_URL}/api/jobs/${encodeURIComponent(id)}`,
   burn: `${BACKEND_URL}/api/burn`,
-  presignedUrl: `${BACKEND_URL}/api/uploads/presigned-url`
 } as const;
 
 export const NETWORK_ERROR_RE = /failed to fetch|networkerror|load failed/i;

@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
@@ -8,6 +8,7 @@ const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 const UPLOADS_BUCKET = process.env.UPLOADS_BUCKET!;
+const RESULTS_BUCKET = process.env.RESULTS_BUCKET!;
 const JOBS_TABLE = process.env.JOBS_TABLE!;
 
 export async function handler(event: any) {
@@ -33,7 +34,18 @@ export async function handler(event: any) {
   if (method === "GET" && path.startsWith("/api/jobs/")) {
     const id = path.split("/").pop();
     const r = await ddb.send(new GetCommand({ TableName: JOBS_TABLE, Key: { id } }));
-    return json(r.Item ?? { status: "unknown" });
+    const item: any = r.Item;
+    if (!item) return json({ status: "unknown" });
+
+    if (item.status === "done" && item.resultKey) {
+      const obj = await s3.send(new GetObjectCommand({
+        Bucket: RESULTS_BUCKET,
+        Key: item.resultKey,
+      }));
+      const text = await obj.Body!.transformToString();
+      item.result = JSON.parse(text);
+    }
+    return json(item);
   }
 
   return { statusCode: 404, body: "not found" };

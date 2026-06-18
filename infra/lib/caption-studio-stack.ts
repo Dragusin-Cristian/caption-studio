@@ -15,6 +15,11 @@ export class CaptionStudioStack extends cdk.Stack {
     const uploads = new s3.Bucket(this, "Uploads", {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      cors: [{
+        allowedMethods: [s3.HttpMethods.PUT],
+        allowedOrigins: ["*"],
+        allowedHeaders: ["*"],
+      }],
     });
 
     const chunks = new s3.Bucket(this, "Chunks", {
@@ -109,7 +114,11 @@ export class CaptionStudioStack extends cdk.Stack {
 
     const apiUrl = api.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
-      cors: { allowedOrigins: ["*"], allowedMethods: [lambda.HttpMethod.ALL] },
+      cors: {
+        allowedOrigins: ["*"],
+        allowedMethods: [lambda.HttpMethod.ALL],
+        allowedHeaders: ["*"],
+      },
     });
 
     new cdk.CfnOutput(this, "ApiUrl", { value: apiUrl.url });
