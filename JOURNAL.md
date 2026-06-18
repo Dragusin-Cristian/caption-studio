@@ -81,3 +81,46 @@ Rewrote `backend/docker/worker.Dockerfile` as multi-stage: AL2023 builder instal
 ### Known follow-up
 
 Cue granularity is coarse — most cues span the full 30 s segment instead of being broken at sentence boundaries. Tunable later with `--max-len` or `--split-on-word` flags to `whisper-cli`. Data is correct; just chunky.
+
+## 2026-06-18 (later) — Client wired to the Lambda + cue tuning
+
+### Wired the client to the Lambda Function URL
+
+- `backend/lambda/api.ts`: on `GET /api/jobs/<id>` with `status: "done"`, fetch result JSON from S3 and inline it as `result: { cues, srt, vtt }`. The client polls a single endpoint and gets the data when ready.
+- `infra/lib/caption-studio-stack.ts`: CORS on the Uploads bucket (`PUT *`) so the browser can hit the presigned URL directly.
+- `client/src/config/api.ts`: `BACKEND_URL` defaults to the deployed Lambda URL; overridable via `VITE_API_URL` for local backend runs.
+- `client/src/api/transcribe.ts`: rewrote `startTranscribe` — POST JSON `{ model, language }`, receive `{ jobId, uploadUrl }`, then `PUT` the file to the presigned URL.
+- `client/src/App.tsx`: re-enabled `replaceAll(result.cues)` after the commented-out path; dropped the obsolete `uploadVideoToS3`.
+- Deleted `client/src/api/upload.ts`; added `client/src/vite-env.d.ts` for `import.meta.env` types.
+
+### CORS gotcha that ate ~15 minutes
+
+After deploy, the browser blocked `POST /api/transcribe` with "CORS policy" errors. The Lambda Function URL had `cors: { allowedOrigins: ["*"], allowedMethods: [HttpMethod.ALL] }` but **no `allowedHeaders`**. Because the client sends `content-type: application/json` (a non-simple header), the browser sends a preflight `OPTIONS` with `Access-Control-Request-Headers: content-type` — and the Lambda CORS response didn't list `content-type` in `Access-Control-Allow-Headers`, so preflight failed. Fix: add `allowedHeaders: ["*"]` to the Function URL CORS block.
+
+### Cue granularity fix
+
+The earlier whisper.cpp run produced one big cue per 120 s segment (the parallelism unit), which was useless as subtitles. Root cause: we were passing **`-nt`** (`--no-timestamps`) to `whisper-cli`. Despite the name, that flag suppresses whisper's natural per-utterance segmentation, not just the printed timestamps — the JSON `transcription[]` ends up with one entry covering the whole input. Fix in `backend/lambda/worker.ts`:
+
+```diff
+- "-nt",
++ "--max-len", "84",
++ "--split-on-word",
+```
+
+Result: 3–10 s cues, broken at word boundaries, capped at ~84 chars (two-line subtitle width).
+
+### Sample
+
+```
+[ 0.00 →  8.76]  okay so in this video I'm gonna show how we can use scaffold in order to have
+[ 8.76 → 17.52]  the dev mode the watch mode let's say of our code being shown directly in our
+[17.52 → 24.16]  Kubernetes so the problem itself is that okay whenever we run the service and we
+[24.16 → 27.52]  have it in our browser running whenever we want to make a change directly in the
+```
+
+### Minor lingering quality issues (not blockers)
+
+1. A few sub-second fragment cues at 120 s parallel-segment boundaries (`[140.80 → 141.12] build`, `[145.91 → 146.40] we define`). The trailing word of a segment that ended mid-sentence. Could be fixed by bumping segment overlap from 2 s → 5–10 s in `makeSegments`, or merging tail cues <1 s into the next cue in `mergeCues`.
+2. Client `model` selector is decorative — worker image only has `small.en` baked in; selecting "Other languages" still runs small.en.
+3. `endpoints.burn` points to a route that doesn't exist on the Lambda API yet (per the design doc, burn-in is a future fourth Lambda).
+4. `npm run build` has two pre-existing TS errors on `CaptionStyle.outline` unrelated to this work.

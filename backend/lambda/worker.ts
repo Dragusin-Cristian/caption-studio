@@ -28,7 +28,8 @@ export async function handler(event: { chunkKey: string; offset: number; languag
       "-oj",
       "-of", outPrefix,
       "-l", event.language || "en",
-      "-nt",
+      "--max-len", "84",
+      "--split-on-word",
     ];
     await run(WHISPER_BIN, args);
 
