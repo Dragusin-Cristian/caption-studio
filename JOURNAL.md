@@ -124,3 +124,41 @@ Result: 3–10 s cues, broken at word boundaries, capped at ~84 chars (two-line 
 2. Client `model` selector is decorative — worker image only has `small.en` baked in; selecting "Other languages" still runs small.en.
 3. `endpoints.burn` points to a route that doesn't exist on the Lambda API yet (per the design doc, burn-in is a future fourth Lambda).
 4. `npm run build` has two pre-existing TS errors on `CaptionStyle.outline` unrelated to this work.
+
+## 2026-06-18 (later still) — Client hosted on CloudFront, CORS locked
+
+### What got added to the stack
+
+- **`Client` S3 bucket** — private, `BlockPublicAccess.BLOCK_ALL`. Never served directly.
+- **`ClientDistribution` (CloudFront)** — fronts the bucket via Origin Access Control (`origins.S3BucketOrigin.withOriginAccessControl`). HTTP redirects to HTTPS. SPA fallback: `403/404 → /index.html` so client-side routes work without manifest files.
+- **`DeployClient` (`BucketDeployment`)** — uploads `client/dist/` and runs `/*` cache invalidation on every `cdk deploy`. Means the client is part of the same `cdk deploy` invocation as the backend — no separate sync step.
+- **CORS lockdown.** Both the Lambda Function URL and the Uploads bucket now use `allowedOrigins: [https://<cf-domain>, http://localhost:5173]` instead of `*`. The CloudFront domain is referenced as a CDK Token so the same code works on stack recreation without re-editing the origin list.
+- **`ClientUrl` CfnOutput** — surfaces the CloudFront URL in the deploy output alongside `ApiUrl`.
+
+### Live URLs
+
+- Client: https://da9wcmrbauw2e.cloudfront.net
+- API:    https://5qxkyfbma5akubwmb2sfseanby0edjra.lambda-url.eu-central-1.on.aws
+
+### Side fix
+
+`npm run build` was blocked by two pre-existing TS errors on `CaptionStyle.outline`. Added `outline: number` to the type in `client/src/types/index.ts` — the field was already being read at runtime in `CaptionOverlay.tsx` and written in `defaults.ts`, just missing from the type. Behavior unchanged.
+
+### CORS verification
+
+- `Origin: https://da9wcmrbauw2e.cloudfront.net` → preflight echoes the origin in `Access-Control-Allow-Origin` ✅
+- `Origin: http://localhost:5173` → echoes the origin ✅
+- `Origin: https://evil.example.com` → 200 response but **no** `Access-Control-Allow-Origin` header — browser blocks the actual fetch ✅
+
+### Deploy workflow from here on
+
+```bash
+cd client  && npm run build       # produces dist/
+cd ../infra && npx cdk deploy CaptionStudio
+```
+
+The backend nest build (`cd backend && npm run build`) is still needed before deploy if backend changed. Could be folded into a top-level script later.
+
+### CloudFront cost note
+
+Deployment takes ~4 minutes because CloudFront propagates the distribution to edge locations on first create. Subsequent `cdk deploy`s that only change client assets are fast (BucketDeployment + invalidation, ~30 s).

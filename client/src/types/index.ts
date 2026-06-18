@@ -11,6 +11,7 @@ export type CaptionStyle = {
   color: string;
   box: number;
   weight: 500 | 700;
+  outline: number;
 };
 
 export type StatusKind = '' | 'work' | 'err' | 'ok';

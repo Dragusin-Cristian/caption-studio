@@ -2,6 +2,9 @@ import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3n from "aws-cdk-lib/aws-s3-notifications";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
@@ -12,12 +15,42 @@ export class CaptionStudioStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    const clientBucket = new s3.Bucket(this, "Client", {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    });
+
+    const distribution = new cloudfront.Distribution(this, "ClientDistribution", {
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(clientBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+      defaultRootObject: "index.html",
+      errorResponses: [
+        { httpStatus: 403, responseHttpStatus: 200, responsePagePath: "/index.html" },
+        { httpStatus: 404, responseHttpStatus: 200, responsePagePath: "/index.html" },
+      ],
+    });
+
+    new s3deploy.BucketDeployment(this, "DeployClient", {
+      sources: [s3deploy.Source.asset(path.resolve(__dirname, "../../client/dist"))],
+      destinationBucket: clientBucket,
+      distribution,
+      distributionPaths: ["/*"],
+    });
+
+    const allowedOrigins = [
+      `https://${distribution.distributionDomainName}`,
+      "http://localhost:5173",
+    ];
+
     const uploads = new s3.Bucket(this, "Uploads", {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       cors: [{
         allowedMethods: [s3.HttpMethods.PUT],
-        allowedOrigins: ["*"],
+        allowedOrigins,
         allowedHeaders: ["*"],
       }],
     });
@@ -115,12 +148,15 @@ export class CaptionStudioStack extends cdk.Stack {
     const apiUrl = api.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
       cors: {
-        allowedOrigins: ["*"],
+        allowedOrigins,
         allowedMethods: [lambda.HttpMethod.ALL],
         allowedHeaders: ["*"],
       },
     });
 
     new cdk.CfnOutput(this, "ApiUrl", { value: apiUrl.url });
+    new cdk.CfnOutput(this, "ClientUrl", {
+      value: `https://${distribution.distributionDomainName}`,
+    });
   }
 }
