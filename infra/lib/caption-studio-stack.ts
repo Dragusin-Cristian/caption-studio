@@ -4,6 +4,7 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as path from "node:path";
 
@@ -40,32 +41,35 @@ export class CaptionStudioStack extends cdk.Stack {
     const worker = new lambda.DockerImageFunction(this, "Worker", {
       code: lambda.DockerImageCode.fromImageAsset(backendRoot, {
         file: "docker/worker.Dockerfile",
+        assetName: "worker-lambda",
+        platform: ecrAssets.Platform.LINUX_AMD64,
       }),
       memorySize: 3008,
       timeout: cdk.Duration.minutes(5),
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
-        WHISPER_MODEL: "Xenova/whisper-small.en",
         CHUNKS_BUCKET: chunks.bucketName,
       },
     });
     chunks.grantRead(worker);
 
     // Optional: keep one warm to avoid first-request cold start.
-    new lambda.Alias(this, "WorkerLive", {
-      aliasName: "live",
-      version: worker.currentVersion,
-      provisionedConcurrentExecutions: 1,
-    });
+    // new lambda.Alias(this, "WorkerLive", {
+    //   aliasName: "live",
+    //   version: worker.currentVersion,
+    //   provisionedConcurrentExecutions: 1,
+    // });
 
     const orchestrator = new lambda.DockerImageFunction(this, "Orchestrator", {
       code: lambda.DockerImageCode.fromImageAsset(backendRoot, {
         file: "docker/orchestrator.Dockerfile",
+        assetName: "orchestrator-lambda",
+        platform: ecrAssets.Platform.LINUX_AMD64,
       }),
       memorySize: 2048,
       timeout: cdk.Duration.minutes(10),
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: {
         UPLOADS_BUCKET: uploads.bucketName,
