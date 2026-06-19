@@ -12,7 +12,7 @@ import { useCues } from '@/hooks/useCues';
 import { useTranscribeJob } from '@/hooks/useTranscribeJob';
 import { burnVideo } from '@/api/burn';
 import { buildSrt, buildVtt, parseSubs } from '@/lib/subtitles';
-import { downloadText, downloadBlob, baseName } from '@/lib/download';
+import { downloadText, baseName } from '@/lib/download';
 import { DEFAULT_STYLE, DEFAULT_BURN_MODE, NEW_CUE_DURATION } from '@/config/defaults';
 import { DEFAULT_MODEL, MODEL_OPTIONS } from '@/config/models';
 import { NETWORK_ERROR_RE } from '@/config/api';
@@ -49,7 +49,7 @@ export function App() {
   const videoUrl = useVideoUrl(file);
   const { currentTime, duration } = useVideoTime(video);
   const { cues, addCue, updateCue, deleteCue, replaceAll } = useCues();
-  const { state: transcribe, start: startTranscribe } = useTranscribeJob();
+  const { state: transcribe, jobId, start: startTranscribe } = useTranscribeJob();
 
   const activeCue = useMemo(() => {
     for (const q of cues) {
@@ -142,6 +142,13 @@ export function App() {
 
   const handleBurn = useCallback(async () => {
     if (!file || cues.length === 0) return;
+    if (!jobId) {
+      setStatus({
+        kind: 'err',
+        message: 'Auto-transcribe a video first — burn reuses the uploaded source.',
+      });
+      return;
+    }
     setBurnBusy(true);
     setStatus({
       kind: 'work',
@@ -149,22 +156,28 @@ export function App() {
         burnMode === 'hard' ? 'Burning captions into the video…' : 'Muxing a subtitle track…',
     });
     try {
-      const blob = await burnVideo({
-        file,
+      const url = await burnVideo({
+        jobId,
         srt: buildSrt(cues),
         mode: burnMode,
         style,
         videoWidth: video?.videoWidth || 1280,
         videoHeight: video?.videoHeight || 720,
       });
-      downloadBlob(`${baseName(file)}-subtitled.mp4`, blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${baseName(file)}-subtitled.mp4`;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       setStatus({ kind: 'ok', message: 'Saved your subtitled video (.mp4).' });
     } catch (err) {
       setStatus({ kind: 'err', message: networkOrRaw(err, 'Burn-in failed') });
     } finally {
       setBurnBusy(false);
     }
-  }, [file, cues, burnMode, style, video]);
+  }, [file, cues, burnMode, style, video, jobId]);
 
   const transcribeStatus: Status = transcribe.running
     ? { kind: 'work', message: transcribe.status }

@@ -162,3 +162,50 @@ The backend nest build (`cd backend && npm run build`) is still needed before de
 ### CloudFront cost note
 
 Deployment takes ~4 minutes because CloudFront propagates the distribution to edge locations on first create. Subsequent `cdk deploy`s that only change client assets are fast (BucketDeployment + invalidation, ~30 s).
+
+## 2026-06-19 — Burn-in works (after three issues)
+
+### Built a Burn Lambda
+
+The previous burn flow POSTed the whole video as multipart to the server, which fails on Lambda Function URLs (6 MB request cap → 413). Rebuilt around the same shape as transcribe:
+
+- `backend/lambda/burn.ts` — handler downloads source from `Uploads/<jobId>.bin`, writes SRT to `/tmp`, runs `ffmpeg-static` (soft mux or hard burn with libass), uploads to `Results/<jobId>-burned.mp4`, updates Jobs row with `burnStatus`/`burnResultKey`/`burnError`.
+- `backend/docker/burn.Dockerfile` — multi-stage; AL2023 Lambda base, `ffmpeg-static` via `npm ci`, plus `fontconfig` and `dejavu-sans-fonts` (see "issue 2" below).
+- `backend/lambda/api.ts` — new `POST /api/burn` (small JSON: `{ jobId, srt, mode, style, videoWidth, videoHeight }`); `GET /api/jobs/<id>` now also inlines a presigned `burnDownloadUrl` when `burnStatus=done`.
+- `infra/lib/caption-studio-stack.ts` — `Burn` DockerImageFunction (3008 MB, 15 min timeout, **10 GiB ephemeral storage**). IAM: Burn reads Uploads, writes Results, writes Jobs. API can `Invoke` Burn. API gained `jobs.grantWriteData` so it can set `burnStatus=burning` before the async invoke.
+- `useTranscribeJob` exposes `jobId`; client `burn.ts` POSTs JSON, polls `/api/jobs/<id>` for `burnStatus`. `App.tsx` gates the Burn button on having a `jobId`.
+
+### Issue 1 — Results bucket had no CORS for browser GETs
+
+Burn finished, browser tried to fetch the presigned URL, got blocked by CORS. The `Results` bucket had no `cors` block; only `Uploads` did. Fix: added a GET-only CORS rule to `Results` with the same `allowedOrigins` (CloudFront + localhost:5173) as the rest of the stack.
+
+### Issue 2 — Hard burn ran successfully but produced no visible subtitles
+
+5 min ffmpeg run, exit 0, MP4 looked clean, no subtitles. Root cause: `ffmpeg-static`'s ffmpeg has libass compiled in, but the Lambda image has **no fontconfig and no fonts**. libass writes warnings to stderr and continues with an empty render. Compounded by `FontName=Arial` in the ASS `force_style` — Arial doesn't exist on Linux.
+
+Fix in two places:
+- `backend/docker/burn.Dockerfile`: `RUN dnf install -y fontconfig dejavu-sans-fonts && dnf clean all`
+- `backend/lambda/burn.ts`: `FontName=DejaVu Sans` instead of `Arial`.
+
+After this, hard burn rendered the styled captions on top of the video. Output grew from ~20 MB (soft mux passthrough) to ~32 MB (libx264 re-encode with text overlay).
+
+### Issue 3 — Browser `fetch()` of presigned URL failed with `net::ERR_FAILED 200 (OK)`
+
+Polling worked. The actual S3 GET arrived (status 200, 32 MB body) but Chrome refused to expose it to JS. Diagnosed via `curl` reproducing the same URL successfully with proper `Access-Control-Allow-Origin` headers. The browser was failing the response post-receipt on some CORS criterion (likely `Access-Control-Allow-Credentials: true` interaction, or a checksum-header quirk) — opaque from outside.
+
+Fix: stopped routing the download through JS at all. The client used to do:
+
+```ts
+const blob = await fetch(burnDownloadUrl).then(r => r.blob());
+downloadBlob(filename, blob);
+```
+
+That fetches 32 MB into a JS Blob just to immediately re-trigger a download — wasteful AND CORS-bound. Replaced with:
+
+1. **API Lambda**: presigned URL now includes `ResponseContentDisposition: 'attachment; filename="<jobId>-subtitled.mp4"'` and `ResponseContentType: "video/mp4"` so S3 returns those headers.
+2. **Client `burn.ts`**: returns the URL string, not a Blob.
+3. **`App.tsx`**: creates `<a href={url} download>`, clicks it, removes it. The browser does a top-level navigation/download to S3 — no JS fetch, no CORS check, native progress bar.
+
+### Net result
+
+End-to-end burn works on AWS. Hard mode applies the configured styling (color, box opacity, position, weight, font size). Soft mode still works as a fast SRT mux for users who want player-rendered subtitles.

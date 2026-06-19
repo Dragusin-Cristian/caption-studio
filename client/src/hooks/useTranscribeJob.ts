@@ -17,6 +17,7 @@ const sleep = (ms: number, signal: AbortSignal) =>
 
 export function useTranscribeJob(): {
   state: TranscribeState;
+  jobId: string | null;
   start: (file: File, model: string, language?: string) => Promise<NonNullable<Job['result']>>;
 } {
   const [state, setState] = useState<TranscribeState>({
@@ -24,6 +25,7 @@ export function useTranscribeJob(): {
     status: '',
     progress: null,
   });
+  const [jobId, setJobId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -36,10 +38,11 @@ export function useTranscribeJob(): {
 
       setState({ running: true, status: 'Uploading to the local service…', progress: 0 });
       try {
-        const { jobId } = await startTranscribe(file, model, language, ac.signal);
+        const { jobId: newJobId } = await startTranscribe(file, model, language, ac.signal);
+        setJobId(newJobId);
         while (true) {
           await sleep(POLL_INTERVAL_MS, ac.signal);
-          const job = await getJob(jobId, ac.signal);
+          const job = await getJob(newJobId, ac.signal);
           if (job.status === 'error') throw new Error(job.error || 'transcription failed');
           if (job.status === 'done') {
             setState({ running: false, status: 'done', progress: 1 });
@@ -61,5 +64,5 @@ export function useTranscribeJob(): {
     [],
   );
 
-  return { state, start };
+  return { state, jobId, start };
 }

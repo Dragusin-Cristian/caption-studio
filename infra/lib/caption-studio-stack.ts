@@ -65,6 +65,11 @@ export class CaptionStudioStack extends cdk.Stack {
     const results = new s3.Bucket(this, "Results", {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      cors: [{
+        allowedMethods: [s3.HttpMethods.GET],
+        allowedOrigins,
+        allowedHeaders: ["*"],
+      }],
     });
 
     const jobs = new dynamodb.Table(this, "Jobs", {
@@ -128,6 +133,27 @@ export class CaptionStudioStack extends cdk.Stack {
       new s3n.LambdaDestination(orchestrator),
     );
 
+    const burn = new lambda.DockerImageFunction(this, "Burn", {
+      code: lambda.DockerImageCode.fromImageAsset(backendRoot, {
+        file: "docker/burn.Dockerfile",
+        assetName: "burn-lambda",
+        platform: ecrAssets.Platform.LINUX_AMD64,
+      }),
+      memorySize: 3008,
+      timeout: cdk.Duration.minutes(15),
+      ephemeralStorageSize: cdk.Size.gibibytes(10),
+      architecture: lambda.Architecture.X86_64,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      environment: {
+        UPLOADS_BUCKET: uploads.bucketName,
+        RESULTS_BUCKET: results.bucketName,
+        JOBS_TABLE: jobs.tableName,
+      },
+    });
+    uploads.grantRead(burn);
+    results.grantWrite(burn);
+    jobs.grantWriteData(burn);
+
     const api = new lambda.Function(this, "Api", {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "lambda/api.handler",
@@ -139,11 +165,14 @@ export class CaptionStudioStack extends cdk.Stack {
         UPLOADS_BUCKET: uploads.bucketName,
         RESULTS_BUCKET: results.bucketName,
         JOBS_TABLE: jobs.tableName,
+        BURN_FN: burn.functionName,
       },
     });
     uploads.grantPut(api);
     results.grantRead(api);
     jobs.grantReadData(api);
+    jobs.grantWriteData(api);
+    burn.grantInvoke(api);
 
     const apiUrl = api.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
