@@ -66,7 +66,7 @@ export function ExportBar({
         value={burnMode}
         onChange={(e) => onBurnModeChange(e.target.value as BurnMode)}
       >
-        <option value="soft">Soft subtitles (fast)</option>
+        {/* <option value="soft">Soft subtitles (fast)</option> */}
         <option value="hard">Hard burn-in</option>
       </Select>
       <Button
