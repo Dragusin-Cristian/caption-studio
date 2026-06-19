@@ -14,12 +14,22 @@ const RESULTS_BUCKET = process.env.RESULTS_BUCKET!;
 const JOBS_TABLE = process.env.JOBS_TABLE!;
 const BURN_FN = process.env.BURN_FN!;
 
+const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
+
 export async function handler(event: any) {
   const path = event.requestContext.http.path;
   const method = event.requestContext.http.method;
 
   if (method === "POST" && path === "/api/transcribe") {
-    const { model = "Xenova/whisper-small.en", language } = JSON.parse(event.body || "{}");
+    const { model = "Xenova/whisper-small.en", language, fileSize } = JSON.parse(event.body || "{}");
+    const size = Number(fileSize);
+    if (!Number.isFinite(size) || size <= 0) {
+      return json({ error: "fileSize required" }, 400);
+    }
+    if (size > MAX_UPLOAD_BYTES) {
+      const limitMb = Math.round(MAX_UPLOAD_BYTES / (1024 * 1024));
+      return json({ error: `Video exceeds ${limitMb} MB limit` }, 413);
+    }
     const jobId = randomUUID();
     const key = `${jobId}.bin`;
     const uploadUrl = await getSignedUrl(
@@ -27,6 +37,7 @@ export async function handler(event: any) {
       new PutObjectCommand({
         Bucket: UPLOADS_BUCKET,
         Key: key,
+        ContentLength: size,
         Metadata: { jobid: jobId, model, language: language || "" },
       }),
       { expiresIn: 900 },

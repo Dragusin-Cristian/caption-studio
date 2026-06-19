@@ -1,4 +1,5 @@
 import { endpoints } from '@/config/api';
+import { MAX_UPLOAD_BYTES } from '@/config/defaults';
 import type { Job } from '@/types';
 
 export async function startTranscribe(
@@ -7,10 +8,16 @@ export async function startTranscribe(
   language?: string,
   signal?: AbortSignal,
 ): Promise<{ jobId: string }> {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    const limitMb = Math.round(MAX_UPLOAD_BYTES / (1024 * 1024));
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    throw new Error(`Video is ${sizeMb} MB — the limit is ${limitMb} MB.`);
+  }
+
   const r = await fetch(endpoints.transcribe, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ model, language }),
+    body: JSON.stringify({ model, language, fileSize: file.size }),
     signal,
   });
   if (!r.ok) {

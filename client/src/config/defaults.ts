@@ -17,3 +17,5 @@ export const BOX_RANGE    = { min: 0, max: 100, step: 5   } as const;
 
 export const NEW_CUE_DURATION = 2; // seconds added after the playhead for a fresh line
 export const POLL_INTERVAL_MS = 700;
+
+export const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
