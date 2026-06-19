@@ -9,10 +9,19 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as path from "node:path";
 
+interface CaptionStudioStackProps extends cdk.StackProps {
+  appDomain: string;
+  hostedZone: route53.IHostedZone;
+  certificate: acm.ICertificate;
+}
+
 export class CaptionStudioStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: CaptionStudioStackProps) {
     super(scope, id, props);
 
     const clientBucket = new s3.Bucket(this, "Client", {
@@ -31,6 +40,16 @@ export class CaptionStudioStack extends cdk.Stack {
         { httpStatus: 403, responseHttpStatus: 200, responsePagePath: "/index.html" },
         { httpStatus: 404, responseHttpStatus: 200, responsePagePath: "/index.html" },
       ],
+      domainNames: [props.appDomain],
+      certificate: props.certificate,
+    });
+
+    new route53.ARecord(this, "ClientAlias", {
+      zone: props.hostedZone,
+      recordName: props.appDomain,
+      target: route53.RecordTarget.fromAlias(
+        new route53Targets.CloudFrontTarget(distribution),
+      ),
     });
 
     new s3deploy.BucketDeployment(this, "DeployClient", {
@@ -42,6 +61,7 @@ export class CaptionStudioStack extends cdk.Stack {
 
     const allowedOrigins = [
       `https://${distribution.distributionDomainName}`,
+      `https://${props.appDomain}`,
       "http://localhost:5173",
     ];
 
@@ -185,6 +205,9 @@ export class CaptionStudioStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "ApiUrl", { value: apiUrl.url });
     new cdk.CfnOutput(this, "ClientUrl", {
+      value: `https://${props.appDomain}`,
+    });
+    new cdk.CfnOutput(this, "CloudFrontUrl", {
       value: `https://${distribution.distributionDomainName}`,
     });
   }

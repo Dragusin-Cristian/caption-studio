@@ -9,4 +9,4 @@ build-backend:
 	echo "BUILD BACKEND" && cd backend && npm run build
 
 cdk-deploy:
-	echo "DEPLOY INFRA" && cd infra && npx cdk deploy CaptionStudio
+	echo "DEPLOY INFRA" && cd infra && npx cdk deploy --all
