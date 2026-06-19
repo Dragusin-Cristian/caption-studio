@@ -28,7 +28,7 @@ const Wrap = styled.div`
 const networkOrRaw = (err: unknown, when: string): string => {
   const m = String((err as { message?: string })?.message ?? err);
   if (NETWORK_ERROR_RE.test(m)) {
-    return 'Can\'t reach the local service. Start it with: npm start — then open http://localhost:5174';
+    return 'Can\'t reach the captions service. Check your internet connection and try again in a moment.';
   }
   return `${when}: ${m}`;
 };

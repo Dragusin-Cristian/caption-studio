@@ -36,7 +36,7 @@ export function useTranscribeJob(): {
       const ac = new AbortController();
       abortRef.current = ac;
 
-      setState({ running: true, status: 'Uploading to the local service…', progress: 0 });
+      setState({ running: true, status: 'Uploading video…', progress: 0 });
       try {
         const { jobId: newJobId } = await startTranscribe(file, model, language, ac.signal);
         setJobId(newJobId);
