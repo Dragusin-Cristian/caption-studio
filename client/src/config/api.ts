@@ -1,6 +1,6 @@
 export const BACKEND_URL =
   import.meta.env.VITE_API_URL ||
-  'https://5qxkyfbma5akubwmb2sfseanby0edjra.lambda-url.eu-central-1.on.aws';
+  'https://p3jwo7ov7aalvek2pbrgzhv73m0kxqqs.lambda-url.eu-central-1.on.aws';
 
 export const endpoints = {
   transcribe: `${BACKEND_URL}/api/transcribe`,
