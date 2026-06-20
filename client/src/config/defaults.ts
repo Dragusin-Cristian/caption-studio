@@ -9,7 +9,7 @@ export const DEFAULT_STYLE: CaptionStyle = {
   outline: 0,
 };
 
-export const DEFAULT_BURN_MODE: BurnMode = 'soft';
+export const DEFAULT_BURN_MODE: BurnMode = 'hard';
 
 export const SIZE_RANGE   = { min: 2, max: 9,  step: 0.25 } as const;
 export const POS_RANGE    = { min: 2, max: 45, step: 1    } as const;
