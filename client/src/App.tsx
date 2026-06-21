@@ -15,6 +15,7 @@ import { buildSrt, buildVtt, parseSubs } from '@/lib/subtitles';
 import { downloadText, baseName } from '@/lib/download';
 import { DEFAULT_STYLE, DEFAULT_BURN_MODE, NEW_CUE_DURATION } from '@/config/defaults';
 import { DEFAULT_MODEL, MODEL_OPTIONS } from '@/config/models';
+import { DEFAULT_LANGUAGE } from '@/config/languages';
 import { NETWORK_ERROR_RE } from '@/config/api';
 import type { BurnMode, CaptionStyle, Status } from '@/types';
 import { getPostPrompt } from './lib/postPrompt';
@@ -41,7 +42,7 @@ export function App() {
   const [style, setStyle] = useState<CaptionStyle>(DEFAULT_STYLE);
   const [status, setStatus] = useState<Status>({ kind: '', message: 'Ready.' });
   const [model, setModel] = useState<string>(DEFAULT_MODEL);
-  const [language, setLanguage] = useState<string>('');
+  const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE);
   const [burnMode, setBurnMode] = useState<BurnMode>(DEFAULT_BURN_MODE);
   const [burnBusy, setBurnBusy] = useState(false);
 

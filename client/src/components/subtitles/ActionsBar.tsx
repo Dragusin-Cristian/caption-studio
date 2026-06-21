@@ -2,8 +2,8 @@ import styled from 'styled-components';
 import { useRef } from 'react';
 import { Button } from '@/design-system/primitives/Button';
 import { Select } from '@/design-system/primitives/Select';
-import { TextInput } from '@/design-system/primitives/TextInput';
 import { MODEL_OPTIONS } from '@/config/models';
+import { LANGUAGE_OPTIONS } from '@/config/languages';
 
 const Row = styled.div`
   display: flex;
@@ -12,7 +12,7 @@ const Row = styled.div`
   margin-bottom: 6px;
 `;
 
-const LangInput = styled(TextInput)`
+const LangSelect = styled(Select)`
   width: 130px;
 `;
 
@@ -65,13 +65,18 @@ export function ActionsBar({
         ))}
       </Select>
 
-      <LangInput
-        placeholder="lang e.g. spanish"
-        title="Only for the 'Other languages' model. Leave blank to auto-detect."
+      <LangSelect
+        title="Only for the 'Other languages' model."
         value={language}
         disabled={langDisabled}
         onChange={(e) => onLanguageChange(e.target.value)}
-      />
+      >
+        {LANGUAGE_OPTIONS.map((l) => (
+          <option key={l.value} value={l.value}>
+            {l.label}
+          </option>
+        ))}
+      </LangSelect>
 
       <Button type="button" onClick={onAddLine} disabled={!canAddLine}>
         Add line
