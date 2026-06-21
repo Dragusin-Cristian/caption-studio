@@ -21,7 +21,8 @@ export class CertStack extends cdk.Stack {
     this.hostedZone = zone;
 
     this.certificate = new acm.Certificate(this, "Cert", {
-      domainName: props.appDomain,
+      domainName: props.rootDomain,
+      subjectAlternativeNames: [props.appDomain],
       validation: acm.CertificateValidation.fromDns(zone),
     });
 

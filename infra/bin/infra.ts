@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
 import { ClientStack } from '../lib/client-stack';
+import { LandingStack } from '../lib/landing-stack';
 import { BackendStack } from '../lib/backend-stack';
 import { CertStack } from '../lib/cert-stack';
 import { AppStagingSynthesizer } from '@aws-cdk/app-staging-synthesizer-alpha';
@@ -27,6 +28,14 @@ const clientStack = new ClientStack(app, "CaptionStudioClient", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
   crossRegionReferences: true,
   appDomain: APP_DOMAIN,
+  hostedZone: certStack.hostedZone,
+  certificate: certStack.certificate,
+});
+
+new LandingStack(app, "CaptionStudioLanding", {
+  env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+  crossRegionReferences: true,
+  rootDomain: ROOT_DOMAIN,
   hostedZone: certStack.hostedZone,
   certificate: certStack.certificate,
 });

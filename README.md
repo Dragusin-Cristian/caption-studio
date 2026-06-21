@@ -28,6 +28,7 @@ The editable source is in [`docs/architecture.drawio`](docs/architecture.drawio)
 
 | Path       | What it is                                                        |
 | ---------- | ----------------------------------------------------------------- |
+| `landing/` | Static marketing page served at the root domain                  |
 | `client/`  | React + Vite single-page app (upload, edit, preview, export)      |
 | `backend/` | NestJS code + Lambda handlers (`api`, `orchestrator`, `worker`, `burn`) |
 | `infra/`   | AWS CDK stacks (hosting, certificate, backend resources)          |
