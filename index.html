@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Primary SEO -->
+    <title>Caption Studio — Automatic Video Subtitles, Edited & Burned In Your Browser</title>
+    <meta
+      name="description"
+      content="Upload a video and get accurate subtitles in minutes. Edit captions in your browser, style them, and download the video with captions burned in — or as a separate SRT/VTT track. Powered by a fast serverless Whisper pipeline."
+    />
+    <meta
+      name="keywords"
+      content="automatic subtitles, video captions, add subtitles to video, burn subtitles, whisper transcription, SRT generator, VTT captions, subtitle editor, caption studio"
+    />
+    <meta name="author" content="Caption Studio" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://caption-studio.site/" />
+    <meta name="theme-color" content="#16130d" />
+
+    <!-- Icons -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Caption Studio" />
+    <meta property="og:title" content="Caption Studio — Automatic Video Subtitles, Edited In Your Browser" />
+    <meta
+      property="og:description"
+      content="Accurate subtitles in minutes. Edit and style captions in the browser, then download with captions burned in or as a separate SRT/VTT track."
+    />
+    <meta property="og:url" content="https://caption-studio.site/" />
+    <meta property="og:image" content="https://caption-studio.site/og-image.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Caption Studio — Automatic Video Subtitles" />
+    <meta
+      name="twitter:description"
+      content="Upload a video, get accurate subtitles, edit them in the browser, and download with captions baked in."
+    />
+    <meta name="twitter:image" content="https://caption-studio.site/og-image.png" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Caption Studio",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Web",
+        "description": "Upload a video, get accurate subtitles, edit them in the browser, and download the video with captions baked in — or as a separate subtitle track.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "Automatic speech-to-text transcription",
+          "In-browser subtitle editor",
+          "Caption styling and hard-burn into video",
+          "Soft SRT/VTT subtitle track export",
+          "Multi-language support"
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How long does transcription take?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Audio is split into segments and transcribed in parallel, so a long video finishes about as fast as a short one — usually minutes, not hours."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What languages are supported?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "English, Spanish, German, Romanian, French and Italian."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I download the video with subtitles burned in?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. You can hard-burn styled captions directly into the video, or download a separate soft SRT/VTT subtitle track."
+            }
+          }
+        ]
+      }
+    </script>
+
+    <style>
+      :root {
+        --bg: #16130d;
+        --surface: #211d15;
+        --surface2: #2b261b;
+        --line: #3a3327;
+        --text: #ece6d8;
+        --muted: #a39a86;
+        --accent: #f4c95d;
+        --accent-hover: #f7d574;
+        --accent-dim: #c9a544;
+        --accent-on: #1a160d;
+        --good: #86c08a;
+        --danger: #e08a5a;
+        --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        --radius-panel: 10px;
+        --radius-md: 8px;
+        --radius-sm: 6px;
+        --content: 1180px;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      html, body { margin: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      ::selection { background: var(--accent); color: var(--accent-on); }
+      a { color: var(--accent-dim); text-decoration: none; }
+      a:hover { color: var(--accent); }
+      img { max-width: 100%; display: block; }
+
+      .wrap {
+        max-width: var(--content);
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* Background ambience */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(60% 50% at 80% -10%, rgba(244, 201, 93, 0.08), transparent 70%),
+          radial-gradient(50% 40% at 0% 0%, rgba(244, 201, 93, 0.05), transparent 60%);
+        pointer-events: none;
+        z-index: 0;
+      }
+      main, header, footer { position: relative; z-index: 1; }
+
+      /* ---------- Buttons ---------- */
+      .btn {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--text);
+        padding: 12px 20px;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        font-size: 15px;
+        font-family: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: border-color .12s, background .12s, transform .12s;
+      }
+      .btn:hover { border-color: var(--accent-dim); transform: translateY(-1px); }
+      .btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-on);
+        font-weight: 600;
+      }
+      .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+      .btn-lg { padding: 15px 26px; font-size: 16px; }
+
+      /* ---------- Top nav ---------- */
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand { display: flex; align-items: baseline; gap: 12px; margin-right: auto; }
+      .mark {
+        font-family: var(--mono);
+        font-weight: 600;
+        letter-spacing: .02em;
+        font-size: 20px;
+        color: var(--bg);
+        background: var(--accent);
+        padding: 4px 9px;
+        border-radius: var(--radius-sm);
+      }
+      .brand-title { font-weight: 600; font-size: 17px; line-height: 1.1; }
+      .brand-sub { color: var(--muted); font-size: 12.5px; font-family: var(--mono); }
+      .nav-links { display: flex; gap: 22px; align-items: center; }
+      .nav-links a { color: var(--muted); font-size: 14px; }
+      .nav-links a:hover { color: var(--text); }
+      @media (max-width: 760px) { .nav-links { display: none; } }
+
+      /* ---------- Hero ---------- */
+      .hero { padding: 84px 0 64px; text-align: center; }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--accent-dim);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        padding: 6px 13px;
+        border-radius: 50px;
+        margin-bottom: 26px;
+      }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+      h1 {
+        font-size: clamp(34px, 6vw, 60px);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        margin: 0 auto 22px;
+        max-width: 16ch;
+        font-weight: 700;
+      }
+      h1 .hl { color: var(--accent); }
+      .lede {
+        color: var(--muted);
+        font-size: clamp(16px, 2.2vw, 20px);
+        max-width: 60ch;
+        margin: 0 auto 34px;
+      }
+      .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+      .reassure {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 13px;
+        font-family: var(--mono);
+      }
+
+      /* ---------- Mock window ---------- */
+      .mock {
+        margin: 56px auto 0;
+        max-width: 920px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-panel);
+        overflow: hidden;
+        box-shadow: 0 40px 80px -40px rgba(0,0,0,.7);
+      }
+      .mock-bar {
+        display: flex; align-items: center; gap: 8px;
+        padding: 11px 15px;
+        border-bottom: 1px solid var(--line);
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .mock-bar .tl { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
+      .mock-bar .label { margin-left: 8px; letter-spacing: .08em; text-transform: uppercase; }
+      .mock-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1px; background: var(--line); }
+      @media (max-width: 680px) { .mock-body { grid-template-columns: 1fr; } }
+      .mock-video {
+        background: linear-gradient(160deg, #1c1810, #2b261b);
+        min-height: 230px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding: 22px;
+        position: relative;
+      }
+      .mock-video::before {
+        content: "▶";
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -60%);
+        font-size: 34px;
+        color: var(--accent);
+        opacity: .5;
+      }
+      .caption-chip {
+        background: rgba(0,0,0,.72);
+        color: #fff;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 15px;
+        text-align: center;
+      }
+      .mock-cues { background: var(--surface); padding: 14px; display: grid; gap: 9px; }
+      .cue {
+        background: var(--surface2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        padding: 9px 11px;
+        font-size: 13px;
+      }
+      .cue.active { border-color: var(--accent-dim); }
+      .cue .ts { font-family: var(--mono); font-size: 11px; color: var(--accent-dim); display: block; margin-bottom: 3px; }
+
+      /* ---------- Section scaffolding ---------- */
+      section { padding: 72px 0; }
+      .section-head { text-align: center; max-width: 60ch; margin: 0 auto 48px; }
+      .kicker {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: var(--accent-dim);
+        margin-bottom: 12px;
+      }
+      h2 { font-size: clamp(26px, 4vw, 38px); margin: 0 0 14px; letter-spacing: -0.01em; }
+      .section-head p { color: var(--muted); font-size: 17px; margin: 0; }
+
+      /* ---------- Feature grid ---------- */
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-panel);
+        padding: 22px;
+        transition: border-color .15s, transform .15s;
+      }
+      .card:hover { border-color: var(--accent-dim); transform: translateY(-2px); }
+      .card .ico {
+        width: 40px; height: 40px;
+        display: grid; place-items: center;
+        background: var(--surface2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        font-size: 20px;
+        margin-bottom: 15px;
+      }
+      .card h3 { margin: 0 0 8px; font-size: 17px; }
+      .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+      /* ---------- Steps ---------- */
+      .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; counter-reset: step; }
+      @media (max-width: 860px) { .steps { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 480px) { .steps { grid-template-columns: 1fr; } }
+      .step {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-panel);
+        padding: 22px;
+        position: relative;
+      }
+      .step::before {
+        counter-increment: step;
+        content: counter(step);
+        font-family: var(--mono);
+        font-weight: 600;
+        color: var(--accent);
+        background: var(--surface2);
+        border: 1px solid var(--line);
+        width: 32px; height: 32px;
+        display: grid; place-items: center;
+        border-radius: 50%;
+        margin-bottom: 14px;
+      }
+      .step h3 { margin: 0 0 7px; font-size: 16px; }
+      .step p { margin: 0; color: var(--muted); font-size: 14px; }
+
+      /* ---------- Languages strip ---------- */
+      .lang-strip { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+      .lang {
+        font-family: var(--mono);
+        font-size: 14px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 50px;
+        padding: 8px 16px;
+        color: var(--text);
+      }
+
+      /* ---------- Split (burn vs soft) ---------- */
+      .split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+      .split .card ul { margin: 14px 0 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; }
+      .split .card li { margin-bottom: 6px; }
+      .tag {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--accent-on);
+        background: var(--accent);
+        padding: 3px 9px;
+        border-radius: 50px;
+        margin-bottom: 12px;
+      }
+      .tag.soft { background: var(--surface2); color: var(--accent-dim); border: 1px solid var(--line); }
+
+      /* ---------- FAQ ---------- */
+      .faq { max-width: 760px; margin: 0 auto; display: grid; gap: 12px; }
+      details {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        padding: 4px 18px;
+      }
+      details[open] { border-color: var(--accent-dim); }
+      summary {
+        cursor: pointer;
+        padding: 15px 0;
+        font-weight: 600;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      summary::-webkit-details-marker { display: none; }
+      summary::after { content: "+"; color: var(--accent); font-size: 20px; font-family: var(--mono); }
+      details[open] summary::after { content: "−"; }
+      details p { margin: 0 0 16px; color: var(--muted); font-size: 14.5px; }
+
+      /* ---------- Final CTA ---------- */
+      .cta-band {
+        text-align: center;
+        background: linear-gradient(160deg, var(--surface), var(--surface2));
+        border: 1px solid var(--line);
+        border-radius: var(--radius-panel);
+        padding: 56px 28px;
+      }
+      .cta-band h2 { margin-bottom: 12px; }
+      .cta-band p { color: var(--muted); margin: 0 auto 28px; max-width: 48ch; }
+
+      /* ---------- Footer ---------- */
+      footer { border-top: 1px solid var(--line); padding: 34px 0; margin-top: 24px; }
+      .foot { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+      .foot .muted { color: var(--muted); font-size: 13px; font-family: var(--mono); margin-right: auto; }
+      .foot a { color: var(--muted); font-size: 13px; }
+      .foot a:hover { color: var(--text); }
+    </style>
+  </head>
+
+  <body>
+    <header class="wrap">
+      <nav class="nav" aria-label="Primary">
+        <div class="brand">
+          <span class="mark">CC</span>
+          <div>
+            <div class="brand-title">Caption Studio</div>
+            <div class="brand-sub">subtitle a video, in your browser</div>
+          </div>
+        </div>
+        <div class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#languages">Languages</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <a class="btn btn-primary" href="https://app.caption-studio.site/">Open the app</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- HERO -->
+      <section class="hero wrap">
+        <span class="eyebrow"><span class="dot"></span> Accurate subtitles in minutes</span>
+        <h1>Turn any video into <span class="hl">perfectly captioned</span> footage</h1>
+        <p class="lede">
+          Upload a video, get accurate subtitles automatically, fine-tune them in the browser,
+          and download the result with captions burned in — or as a clean SRT/VTT track.
+          No installs, no timeline wrestling.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary btn-lg" href="https://app.caption-studio.site/">Caption a video — free</a>
+          <a class="btn btn-lg" href="#how">See how it works</a>
+        </div>
+        <p class="reassure">Runs in your browser · Parallel transcription · Export hard-burned or soft subtitles</p>
+
+        <!-- Product mock -->
+        <div class="mock" aria-hidden="true">
+          <div class="mock-bar">
+            <span class="tl"></span><span class="tl"></span><span class="tl"></span>
+            <span class="label">Caption Studio — editor</span>
+          </div>
+          <div class="mock-body">
+            <div class="mock-video">
+              <div class="caption-chip">…so the whole thing finishes in minutes.</div>
+            </div>
+            <div class="mock-cues">
+              <div class="cue"><span class="ts">00:00:02,140 → 00:00:04,900</span>Audio is split into segments…</div>
+              <div class="cue active"><span class="ts">00:00:04,900 → 00:00:07,300</span>…transcribed all at once,</div>
+              <div class="cue"><span class="ts">00:00:07,300 → 00:00:09,800</span>so the whole thing finishes in minutes.</div>
+              <div class="cue"><span class="ts">00:00:09,800 → 00:00:12,050</span>Then style it and burn it in.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FEATURES -->
+      <section id="features">
+        <div class="wrap">
+          <div class="section-head">
+            <div class="kicker">Everything in one place</div>
+            <h2>From raw footage to captioned export</h2>
+            <p>A focused workflow that handles transcription, editing, styling and export — without leaving the tab.</p>
+          </div>
+          <div class="grid">
+            <article class="card">
+              <div class="ico">🎙️</div>
+              <h3>Automatic transcription</h3>
+              <p>Speech is turned into accurate, time-coded subtitles using a Whisper-based engine — no manual typing.</p>
+            </article>
+            <article class="card">
+              <div class="ico">⚡</div>
+              <h3>Parallel & fast</h3>
+              <p>Audio is chopped into segments and transcribed at the same time, so a long video finishes about as fast as a short one.</p>
+            </article>
+            <article class="card">
+              <div class="ico">✏️</div>
+              <h3>In-browser editor</h3>
+              <p>Review every cue, fix wording, and nudge timings in a clean editor synced to live video playback.</p>
+            </article>
+            <article class="card">
+              <div class="ico">🎨</div>
+              <h3>Style your captions</h3>
+              <p>Control font, size, color and placement, then preview exactly how captions will sit on the video.</p>
+            </article>
+            <article class="card">
+              <div class="ico">🔥</div>
+              <h3>Burn in or keep soft</h3>
+              <p>Hard-burn styled captions into the video with ffmpeg, or export a separate SRT/VTT subtitle track.</p>
+            </article>
+            <article class="card">
+              <div class="ico">🌐</div>
+              <h3>Multiple languages</h3>
+              <p>Transcribe English, Spanish, German, Romanian, French and Italian out of the box.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- HOW IT WORKS -->
+      <section id="how">
+        <div class="wrap">
+          <div class="section-head">
+            <div class="kicker">How it works</div>
+            <h2>Four steps to captioned video</h2>
+            <p>Upload, transcribe, edit, export. The heavy lifting runs on a fast serverless pipeline.</p>
+          </div>
+          <div class="steps">
+            <div class="step">
+              <h3>Upload your video</h3>
+              <p>Drop in a file. It uploads straight to secure storage — no waiting in a queue.</p>
+            </div>
+            <div class="step">
+              <h3>Auto-transcribe</h3>
+              <p>The audio is split and transcribed in parallel, then merged into clean, time-coded cues.</p>
+            </div>
+            <div class="step">
+              <h3>Edit & style</h3>
+              <p>Polish the text, adjust timings, and style captions to match your brand.</p>
+            </div>
+            <div class="step">
+              <h3>Download</h3>
+              <p>Export the video with captions baked in, or grab a standalone SRT/VTT file.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BURN vs SOFT -->
+      <section>
+        <div class="wrap">
+          <div class="section-head">
+            <div class="kicker">Two ways to export</div>
+            <h2>Captions exactly how you need them</h2>
+            <p>Burn them in for social platforms, or keep them as a toggleable track for players that support it.</p>
+          </div>
+          <div class="split">
+            <article class="card">
+              <span class="tag">Hard-burned</span>
+              <h3>Baked into the video</h3>
+              <p>Styled captions are rendered directly into the footage with ffmpeg.</p>
+              <ul>
+                <li>Plays everywhere — no player support needed</li>
+                <li>Perfect for Reels, Shorts, TikTok & feeds</li>
+                <li>Your exact fonts, colors and placement</li>
+              </ul>
+            </article>
+            <article class="card">
+              <span class="tag soft">Soft track</span>
+              <h3>Separate SRT / VTT</h3>
+              <p>A standalone subtitle file or muxed soft track alongside the video.</p>
+              <ul>
+                <li>Viewers can toggle captions on or off</li>
+                <li>Editable later in any subtitle tool</li>
+                <li>Great for YouTube, Vimeo and web players</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- LANGUAGES -->
+      <section id="languages">
+        <div class="wrap">
+          <div class="section-head">
+            <div class="kicker">Multilingual</div>
+            <h2>Caption in six languages</h2>
+            <p>Pick a language and let the engine handle the rest.</p>
+          </div>
+          <div class="lang-strip">
+            <span class="lang">English</span>
+            <span class="lang">Spanish</span>
+            <span class="lang">German</span>
+            <span class="lang">Romanian</span>
+            <span class="lang">French</span>
+            <span class="lang">Italian</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section id="faq">
+        <div class="wrap">
+          <div class="section-head">
+            <div class="kicker">FAQ</div>
+            <h2>Questions, answered</h2>
+          </div>
+          <div class="faq">
+            <details open>
+              <summary>How long does transcription take?</summary>
+              <p>Because the audio is split into segments and transcribed in parallel, a long video finishes about as fast as a short one — usually minutes, not hours.</p>
+            </details>
+            <details>
+              <summary>Which languages can I transcribe?</summary>
+              <p>English, Spanish, German, Romanian, French and Italian are supported out of the box.</p>
+            </details>
+            <details>
+              <summary>Can I download the video with subtitles burned in?</summary>
+              <p>Yes. You can hard-burn styled captions directly into the video, or export a separate soft SRT/VTT subtitle track — whichever fits your platform.</p>
+            </details>
+            <details>
+              <summary>Do I need to install anything?</summary>
+              <p>No. Caption Studio runs entirely in your browser. Upload, edit, and export without installing software.</p>
+            </details>
+            <details>
+              <summary>Can I edit the subtitles before exporting?</summary>
+              <p>Absolutely. Every cue is editable — fix wording, adjust timings, and restyle captions, all synced to live video playback.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- FINAL CTA -->
+      <section>
+        <div class="wrap">
+          <div class="cta-band">
+            <h2>Caption your next video in minutes</h2>
+            <p>Upload, auto-transcribe, fine-tune, and export — all in the browser.</p>
+            <a class="btn btn-primary btn-lg" href="https://app.caption-studio.site/">Open Caption Studio</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="wrap">
+      <div class="foot">
+        <span class="muted">© Caption Studio — subtitle a video, in your browser</span>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://app.caption-studio.site/">Open the app</a>
+      </div>
+    </footer>
+  </body>
+</html>
