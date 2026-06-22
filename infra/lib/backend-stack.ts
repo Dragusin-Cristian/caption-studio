@@ -25,6 +25,11 @@ export class BackendStack extends cdk.Stack {
     ];
 
     const uploads = new s3.Bucket(this, "Uploads", {
+      // source uploads are only needed until the job finishes — clear daily
+      lifecycleRules: [{
+        expiration: cdk.Duration.days(1),
+        abortIncompleteMultipartUploadAfter: cdk.Duration.days(1),
+      }],
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       cors: [{
@@ -42,6 +47,8 @@ export class BackendStack extends cdk.Stack {
     });
 
     const results = new s3.Bucket(this, "Results", {
+      // outputs are downloaded shortly after the job completes — clear daily
+      lifecycleRules: [{ expiration: cdk.Duration.days(1) }],
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       cors: [{
