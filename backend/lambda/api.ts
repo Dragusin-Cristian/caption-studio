@@ -14,7 +14,7 @@ const RESULTS_BUCKET = process.env.RESULTS_BUCKET!;
 const JOBS_TABLE = process.env.JOBS_TABLE!;
 const BURN_FN = process.env.BURN_FN!;
 
-const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;
 
 export async function handler(event: any) {
   const path = event.requestContext.http.path;
