@@ -60,10 +60,11 @@ export class BackendStack extends cdk.Stack {
 
     const backendRoot = path.resolve(__dirname, "../../backend");
 
-    const worker = new lambda.DockerImageFunction(this, "Worker", {
+    // English-only worker (small.en model).
+    const workerEn = new lambda.DockerImageFunction(this, "WorkerEn", {
       code: lambda.DockerImageCode.fromImageAsset(backendRoot, {
-        file: "docker/worker.Dockerfile",
-        assetName: "worker-lambda",
+        file: "docker/worker-en.Dockerfile",
+        assetName: "worker-en-lambda",
         platform: ecrAssets.Platform.LINUX_AMD64,
       }),
       memorySize: 3008,
@@ -74,7 +75,25 @@ export class BackendStack extends cdk.Stack {
         CHUNKS_BUCKET: chunks.bucketName,
       },
     });
-    chunks.grantRead(worker);
+    chunks.grantRead(workerEn);
+
+    // Multilingual worker: small.en is English-only, so non-English jobs use
+    // the (multilingual) base model instead.
+    const workerBase = new lambda.DockerImageFunction(this, "WorkerBase", {
+      code: lambda.DockerImageCode.fromImageAsset(backendRoot, {
+        file: "docker/worker-base.Dockerfile",
+        assetName: "worker-base-lambda",
+        platform: ecrAssets.Platform.LINUX_AMD64,
+      }),
+      memorySize: 3008,
+      timeout: cdk.Duration.minutes(5),
+      architecture: lambda.Architecture.X86_64,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      environment: {
+        CHUNKS_BUCKET: chunks.bucketName,
+      },
+    });
+    chunks.grantRead(workerBase);
 
     // Optional: keep one warm to avoid first-request cold start.
     // new lambda.Alias(this, "WorkerLive", {
@@ -98,14 +117,16 @@ export class BackendStack extends cdk.Stack {
         CHUNKS_BUCKET: chunks.bucketName,
         RESULTS_BUCKET: results.bucketName,
         JOBS_TABLE: jobs.tableName,
-        WORKER_FN: worker.functionName,
+        WORKER_EN_FN: workerEn.functionName,
+        WORKER_BASE_FN: workerBase.functionName,
       },
     });
     uploads.grantRead(orchestrator);
     chunks.grantWrite(orchestrator);
     results.grantWrite(orchestrator);
     jobs.grantWriteData(orchestrator);
-    worker.grantInvoke(orchestrator);
+    workerEn.grantInvoke(orchestrator);
+    workerBase.grantInvoke(orchestrator);
 
     uploads.addEventNotification(
       s3.EventType.OBJECT_CREATED,

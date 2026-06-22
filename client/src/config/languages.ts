@@ -3,15 +3,16 @@ export type LanguageOption = {
   label: string;
 };
 
-// The only languages offered across the app. `value` is sent to the backend
-// (whisper accepts the lowercase language name).
+// The only languages offered across the app. `value` is the ISO 639-1 code
+// sent to the backend; the orchestrator routes `en` to the small.en worker and
+// everything else to the multilingual base worker.
 export const LANGUAGE_OPTIONS: ReadonlyArray<LanguageOption> = [
-  { value: 'english',  label: 'English'  },
-  { value: 'spanish',  label: 'Spanish'  },
-  { value: 'german',   label: 'German'   },
-  { value: 'romanian', label: 'Romanian' },
-  { value: 'french',   label: 'French'   },
-  { value: 'italian',  label: 'Italian'  },
+  { value: 'en', label: 'English'  },
+  { value: 'es', label: 'Spanish'  },
+  { value: 'de', label: 'German'   },
+  { value: 'ro', label: 'Romanian' },
+  { value: 'fr', label: 'French'   },
+  { value: 'it', label: 'Italian'  },
 ];
 
-export const DEFAULT_LANGUAGE = 'english';
+export const DEFAULT_LANGUAGE = 'en';

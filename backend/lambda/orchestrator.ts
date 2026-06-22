@@ -17,7 +17,9 @@ const UPLOADS_BUCKET = process.env.UPLOADS_BUCKET!;
 const CHUNKS_BUCKET = process.env.CHUNKS_BUCKET!;
 const RESULTS_BUCKET = process.env.RESULTS_BUCKET!;
 const JOBS_TABLE = process.env.JOBS_TABLE!;
-const WORKER_FN = process.env.WORKER_FN!;
+const WORKER_EN_FN = process.env.WORKER_EN_FN!;
+// small.en is English-only; non-English jobs need the multilingual base model.
+const WORKER_BASE_FN = process.env.WORKER_BASE_FN!;
 
 export async function handler(event: any) {
   for (const record of event.Records) {
@@ -25,6 +27,9 @@ export async function handler(event: any) {
     const head = await s3.send(new HeadObjectCommand({ Bucket: UPLOADS_BUCKET, Key: key }));
     const jobId = head.Metadata!.jobid;
     const language = head.Metadata!.language || undefined;
+    // English (or unspecified) → small.en; anything else → multilingual base model.
+    const isEnglish = !language || language.toLowerCase() === "en";
+    const workerFn = isEnglish ? WORKER_EN_FN : WORKER_BASE_FN;
 
     try {
       await setStatus(jobId, "decoding", 0);
@@ -43,7 +48,7 @@ export async function handler(event: any) {
             Body: Buffer.from(seg.pcm.buffer, seg.pcm.byteOffset, seg.pcm.byteLength),
           }));
           const r = await lambda.send(new InvokeCommand({
-            FunctionName: WORKER_FN,
+            FunctionName: workerFn,
             Payload: Buffer.from(JSON.stringify({
               chunkKey, offset: seg.start, language,
             })),
