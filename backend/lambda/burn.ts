@@ -36,7 +36,9 @@ type BurnEvent = {
   };
 };
 
-export async function handler(event: BurnEvent) {
+type LambdaContext = { getRemainingTimeInMillis?: () => number };
+
+export async function handler(event: BurnEvent, context?: LambdaContext) {
   const { jobId, srt, mode, style = {} } = event;
   const sourceKey = `${jobId}.bin`;
   const inPath = `/tmp/${jobId}.in`;
@@ -54,7 +56,7 @@ export async function handler(event: BurnEvent) {
         ? buildSoftArgs(inPath, srtPath, outPath)
         : await buildHardArgs(inPath, srtPath, outPath, style);
 
-    await runFfmpeg(args);
+    await runFfmpeg(args, context);
 
     const size = (await stat(outPath)).size;
     await s3.send(new PutObjectCommand({
@@ -127,12 +129,22 @@ async function buildHardArgs(
 
   const escPath = srtPath.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "\\'");
 
+  // Cap resolution at 1080p before burning. Encode time scales with pixel count, so
+  // downscaling 4K/1440p input keeps long videos under the Lambda time limit. libass
+  // renders subtitles in a 288-unit script space that rescales to the frame, so the
+  // font sizing above is unaffected by the downscale.
+  let vf = `subtitles='${escPath}':force_style='${styleStr}'`;
+  if (probed && probed.height > 1080) {
+    const scaledW = Math.round((probed.width * 1080) / probed.height / 2) * 2;
+    vf = `scale=${scaledW}:1080,` + vf;
+  }
+
   return [
     "-y",
     "-i", inPath,
-    "-vf", `subtitles='${escPath}':force_style='${styleStr}'`,
+    "-vf", vf,
     "-c:v", "libx264",
-    "-preset", "veryfast",
+    "-preset", "ultrafast",
     "-crf", "20",
     "-pix_fmt", "yuv420p",
     "-c:a", "copy",
@@ -167,19 +179,43 @@ async function probeDimensions(filePath: string): Promise<{ width: number; heigh
   });
 }
 
-async function runFfmpeg(args: string[]): Promise<void> {
+async function runFfmpeg(args: string[], context?: LambdaContext): Promise<void> {
   const bin = await ffmpegBin();
+  // Abort ffmpeg before the Lambda hard timeout so the catch block can record an
+  // error status. Without this the process is killed at the 15-min wall mid-encode,
+  // the catch never runs, burnStatus stays "burning", and the client polls forever.
+  const remaining = context?.getRemainingTimeInMillis?.() ?? 15 * 60 * 1000;
+  const budgetMs = Math.max(30_000, remaining - 25_000);
   return new Promise((resolve, reject) => {
     const ff = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
     let err = "";
+    let timedOut = false;
+    const watchdog = setTimeout(() => {
+      timedOut = true;
+      ff.kill("SIGKILL");
+    }, budgetMs);
     ff.stderr.on("data", (d: Buffer) => {
       err += d.toString();
       if (err.length > 8000) err = err.slice(-8000);
     });
-    ff.on("error", (e) => reject(new Error("could not start ffmpeg: " + e.message)));
-    ff.on("close", (code) =>
-      code === 0 ? resolve() : reject(new Error("ffmpeg failed:\n" + err.slice(-600))),
-    );
+    ff.on("error", (e) => {
+      clearTimeout(watchdog);
+      reject(new Error("could not start ffmpeg: " + e.message));
+    });
+    ff.on("close", (code) => {
+      clearTimeout(watchdog);
+      if (timedOut) {
+        reject(
+          new Error(
+            "This video is too long to burn within the processing time limit. Try a shorter clip or a lower resolution.",
+          ),
+        );
+      } else if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error("ffmpeg failed:\n" + err.slice(-600)));
+      }
+    });
   });
 }
 

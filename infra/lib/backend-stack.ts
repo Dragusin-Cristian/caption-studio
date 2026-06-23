@@ -157,6 +157,9 @@ export class BackendStack extends cdk.Stack {
         JOBS_TABLE: jobs.tableName,
       },
     });
+    // A timed-out burn is permanent (the video is too long for the time budget),
+    // so retrying it 2 more times just wastes ~30 extra minutes of compute.
+    burn.configureAsyncInvoke({ retryAttempts: 0 });
     uploads.grantRead(burn);
     results.grantWrite(burn);
     jobs.grantWriteData(burn);
