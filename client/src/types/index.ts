@@ -5,6 +5,13 @@ export type Cue = {
   text: string;
 };
 
+/** A single transcribed word with its own timing — used to regroup cues client-side. */
+export type Word = {
+  start: number;
+  end: number;
+  text: string;
+};
+
 export type CaptionStyle = {
   size: number;
   pos: number;
@@ -27,6 +34,6 @@ export type Job = {
   status: string;
   progress?: number;
   segments?: number;
-  result?: { cues: Cue[]; srt: string; vtt: string };
+  result?: { cues: Cue[]; words?: Word[]; srt: string; vtt: string };
   error?: string;
 };

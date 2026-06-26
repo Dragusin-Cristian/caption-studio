@@ -28,7 +28,9 @@ export async function handler(event: { chunkKey: string; offset: number; languag
       "-oj",
       "-of", outPrefix,
       "-l", event.language || "en",
-      "--max-len", "84",
+      // --max-len 1 + --split-on-word emits one word per segment, each with its own
+      // timestamps.from/to — word-level timing the client regroups into ≤N-word cues.
+      "--max-len", "1",
       "--split-on-word",
     ];
     await run(WHISPER_BIN, args);

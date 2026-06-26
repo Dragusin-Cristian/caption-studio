@@ -7,7 +7,7 @@ import { createWriteStream } from "node:fs";
 import { unlink } from "node:fs/promises";
 import { pipeline as streamPipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
-import { makeSegments, mergeCues, toSrt, toVtt, SAMPLE_RATE, type Cue } from "../src/transcription/subtitles.util";
+import { makeSegments, mergeCues, groupWords, toSrt, toVtt, SAMPLE_RATE, DEFAULT_MAX_WORDS, type Cue } from "../src/transcription/subtitles.util";
 
 const lambda = new LambdaClient({});
 const s3 = new S3Client({});
@@ -65,12 +65,13 @@ export async function handler(event: any) {
         }),
       );
 
-      const cues = mergeCues(perSegment);
+      const words = mergeCues(perSegment);
+      const cues = groupWords(words, DEFAULT_MAX_WORDS);
       const resultKey = `${jobId}.json`;
       await s3.send(new PutObjectCommand({
         Bucket: RESULTS_BUCKET,
         Key: resultKey,
-        Body: JSON.stringify({ cues, srt: toSrt(cues), vtt: toVtt(cues) }),
+        Body: JSON.stringify({ words, cues, srt: toSrt(cues), vtt: toVtt(cues) }),
         ContentType: "application/json",
       }));
       await setStatus(jobId, "done", 1, segments.length, resultKey);

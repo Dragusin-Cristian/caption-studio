@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
 import { DropZone } from '@/components/DropZone';
 import { Editor } from '@/components/Editor';
@@ -11,13 +11,13 @@ import { useVideoTime } from '@/hooks/useVideoTime';
 import { useCues } from '@/hooks/useCues';
 import { useTranscribeJob } from '@/hooks/useTranscribeJob';
 import { burnVideo } from '@/api/burn';
-import { buildSrt, buildVtt, parseSubs } from '@/lib/subtitles';
+import { buildSrt, buildVtt, parseSubs, groupWords } from '@/lib/subtitles';
 import { downloadText, baseName } from '@/lib/download';
-import { DEFAULT_STYLE, DEFAULT_BURN_MODE, NEW_CUE_DURATION } from '@/config/defaults';
+import { DEFAULT_STYLE, DEFAULT_BURN_MODE, NEW_CUE_DURATION, DEFAULT_MAX_WORDS } from '@/config/defaults';
 import { DEFAULT_MODEL, MODEL_OPTIONS } from '@/config/models';
 import { DEFAULT_LANGUAGE } from '@/config/languages';
 import { NETWORK_ERROR_RE } from '@/config/api';
-import type { BurnMode, CaptionStyle, Status } from '@/types';
+import type { BurnMode, CaptionStyle, Status, Word } from '@/types';
 import { getPostPrompt } from './lib/postPrompt';
 
 const Wrap = styled.div`
@@ -45,6 +45,8 @@ export function App() {
   const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE);
   const [burnMode, setBurnMode] = useState<BurnMode>(DEFAULT_BURN_MODE);
   const [burnBusy, setBurnBusy] = useState(false);
+  const [maxWords, setMaxWords] = useState<number>(DEFAULT_MAX_WORDS);
+  const [words, setWords] = useState<Word[]>([]);
 
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const videoUrl = useVideoUrl(file);
@@ -87,6 +89,7 @@ export function App() {
           setStatus({ kind: 'err', message: 'No subtitle lines found in that file.' });
           return;
         }
+        setWords([]); // imported lines have no word timings; the slider leaves them alone
         replaceAll(parsed);
         setStatus({
           kind: 'ok',
@@ -110,19 +113,32 @@ export function App() {
     try {
       const lang = isEnglishOnlyModel(model) ? undefined : language.trim() || undefined;
       const result = await startTranscribe(file, model, lang);
-      if (!result.cues?.length) {
+      const ws = result.words ?? [];
+      if (!ws.length && !result.cues?.length) {
         setStatus({ kind: 'err', message: 'No clear speech detected. You can add lines by hand.' });
         return;
       }
-      replaceAll(result.cues);
+      // Keep the word list so the "max words" slider can regroup cues without re-transcribing.
+      // The re-split effect turns these words into cues; older results without words fall back
+      // to the server-grouped cues.
+      setWords(ws);
+      const lineCount = ws.length ? groupWords(ws, maxWords).length : result.cues.length;
+      if (!ws.length) replaceAll(result.cues);
       setStatus({
         kind: 'ok',
-        message: `Done — ${result.cues.length} lines. Edit below, then export or burn in.`,
+        message: `Done — ${lineCount} lines. Edit below, then export or burn in.`,
       });
     } catch (err) {
       setStatus({ kind: 'err', message: networkOrRaw(err, 'Transcription failed') });
     }
-  }, [file, model, language, startTranscribe, replaceAll]);
+  }, [file, model, language, maxWords, startTranscribe, replaceAll]);
+
+  // Regroup the transcribed words into ≤maxWords-word cues whenever the words arrive or
+  // the slider changes — instant re-split, no re-transcribe. Reflows from the original
+  // transcription, so manual edits made since transcribing are reset.
+  useEffect(() => {
+    if (words.length) replaceAll(groupWords(words, maxWords));
+  }, [words, maxWords, replaceAll]);
 
   const linkedInPrompt = useMemo(() => {
     const script = cues
@@ -216,6 +232,9 @@ export function App() {
               onLanguageChange={setLanguage}
               onAutoTranscribe={handleAutoTranscribe}
               autoBusy={transcribe.running}
+              maxWords={maxWords}
+              onMaxWordsChange={setMaxWords}
+              canAdjustMaxWords={words.length > 0}
               onAddLine={handleAddLine}
               canAddLine={file != null}
               onImport={handleImport}

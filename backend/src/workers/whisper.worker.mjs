@@ -15,7 +15,9 @@ process.on("message", async (msg) => {
   try {
     const asr = await ready;
     const audio = new Float32Array(msg.pcm);
-    const opts = { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 };
+    // 'word' returns one chunk per word, each with its own [start, end] timestamp.
+    // Word-level timing lets the client regroup words into ≤N-word cues in perfect sync.
+    const opts = { return_timestamps: "word", chunk_length_s: 30, stride_length_s: 5 };
     if (msg.language) opts.language = msg.language;
     const out = await asr(audio, opts);
     const raw = out && out.chunks ? out.chunks : [];

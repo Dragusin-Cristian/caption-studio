@@ -30,6 +30,9 @@ type Props = {
   onLanguageChange: (next: string) => void;
   onAutoTranscribe: () => void;
   autoBusy: boolean;
+  maxWords: number;
+  onMaxWordsChange: (next: number) => void;
+  canAdjustMaxWords: boolean;
 
   onAddLine: () => void;
   canAddLine: boolean;
@@ -64,6 +67,9 @@ export function SubtitlesPanel(props: Props) {
           onLanguageChange={props.onLanguageChange}
           onAutoTranscribe={props.onAutoTranscribe}
           autoBusy={props.autoBusy}
+          maxWords={props.maxWords}
+          onMaxWordsChange={props.onMaxWordsChange}
+          canAdjustMaxWords={props.canAdjustMaxWords}
           onAddLine={props.onAddLine}
           canAddLine={props.canAddLine}
           onImport={props.onImport}

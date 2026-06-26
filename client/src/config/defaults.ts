@@ -15,6 +15,9 @@ export const SIZE_RANGE   = { min: 2, max: 9,  step: 0.25 } as const;
 export const POS_RANGE    = { min: 2, max: 45, step: 1    } as const;
 export const BOX_RANGE    = { min: 0, max: 100, step: 5   } as const;
 
+export const MAX_WORDS_RANGE = { min: 1, max: 14, step: 1 } as const;
+export const DEFAULT_MAX_WORDS = 6; // words per subtitle line; keep in sync with backend
+
 export const NEW_CUE_DURATION = 2; // seconds added after the playhead for a fresh line
 export const POLL_INTERVAL_MS = 700;
 

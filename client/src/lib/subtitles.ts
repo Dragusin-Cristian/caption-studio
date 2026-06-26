@@ -1,5 +1,49 @@
-import type { Cue } from '@/types';
+import type { Cue, Word } from '@/types';
 import { fmtStamp, parseClock } from './time';
+
+const STRONG_PUNCT = /[.!?]$/; // sentence end — break immediately so sentences stay separate
+const CLAUSE_PUNCT = /[,;:]$/; // clause break — preferred when we hit the word cap
+
+/**
+ * Group word-level timings into lines of at most `maxWords` words (smart break):
+ * end a line as soon as a word finishes a sentence (so two sentences never share a
+ * line); otherwise fill up to the cap, backing off to the latest clause punctuation so
+ * we don't cut mid-clause. Each line's start/end come from its real first/last word, so
+ * timing stays in sync with the audio. Mirrors the backend's groupWords.
+ */
+export function groupWords(words: ReadonlyArray<Word>, maxWords: number): Array<Omit<Cue, 'id'>> {
+  const n = Math.max(1, Math.floor(maxWords) || 1);
+  const out: Array<Omit<Cue, 'id'>> = [];
+  let i = 0;
+  while (i < words.length) {
+    const windowEnd = Math.min(i + n, words.length);
+    let breakAt = -1;
+    for (let j = i; j < windowEnd; j++) {
+      if (STRONG_PUNCT.test(words[j]!.text.trim())) {
+        breakAt = j + 1;
+        break;
+      }
+    }
+    if (breakAt < 0) {
+      breakAt = windowEnd;
+      for (let k = windowEnd - 1; k > i; k--) {
+        if (CLAUSE_PUNCT.test(words[k]!.text.trim())) {
+          breakAt = k + 1;
+          break;
+        }
+      }
+    }
+    if (breakAt <= i) breakAt = i + 1;
+    const slice = words.slice(i, breakAt);
+    out.push({
+      start: slice[0]!.start,
+      end: slice[slice.length - 1]!.end,
+      text: slice.map((w) => w.text.trim()).join(' ').trim(),
+    });
+    i = breakAt;
+  }
+  return out;
+}
 
 export function buildSrt(cues: ReadonlyArray<Cue>): string {
   return cues

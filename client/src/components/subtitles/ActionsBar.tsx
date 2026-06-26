@@ -2,18 +2,35 @@ import styled from 'styled-components';
 import { useRef } from 'react';
 import { Button } from '@/design-system/primitives/Button';
 import { Select } from '@/design-system/primitives/Select';
+import { Slider } from '@/design-system/primitives/Slider';
 import { MODEL_OPTIONS } from '@/config/models';
 import { LANGUAGE_OPTIONS } from '@/config/languages';
+import { MAX_WORDS_RANGE } from '@/config/defaults';
 
 const Row = styled.div`
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
   margin-bottom: 6px;
 `;
 
 const LangSelect = styled(Select)`
   width: 130px;
+`;
+
+const WordsField = styled.label`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 160px;
+`;
+
+const WordsLabel = styled.span`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.muted};
+  font-family: ${({ theme }) => theme.fonts.mono};
+  letter-spacing: .04em;
 `;
 
 const HiddenInput = styled.input`
@@ -27,6 +44,9 @@ type Props = {
   onLanguageChange: (next: string) => void;
   onAutoTranscribe: () => void;
   autoBusy: boolean;
+  maxWords: number;
+  onMaxWordsChange: (next: number) => void;
+  canAdjustMaxWords: boolean;
   onAddLine: () => void;
   canAddLine: boolean;
   onImport: (file: File) => void;
@@ -39,6 +59,9 @@ export function ActionsBar({
   onLanguageChange,
   onAutoTranscribe,
   autoBusy,
+  maxWords,
+  onMaxWordsChange,
+  canAdjustMaxWords,
   onAddLine,
   canAddLine,
   onImport,
@@ -77,6 +100,23 @@ export function ActionsBar({
           </option>
         ))}
       </LangSelect>
+
+      <WordsField
+        title={
+          canAdjustMaxWords
+            ? 'Splits the captions into lines of at most this many words — slide to reflow instantly.'
+            : 'Max words per caption line. Applied when you Auto-transcribe.'
+        }
+      >
+        <WordsLabel>Max words / line: {maxWords}</WordsLabel>
+        <Slider
+          min={MAX_WORDS_RANGE.min}
+          max={MAX_WORDS_RANGE.max}
+          step={MAX_WORDS_RANGE.step}
+          value={maxWords}
+          onChange={(e) => onMaxWordsChange(Number(e.target.value))}
+        />
+      </WordsField>
 
       <Button type="button" onClick={onAddLine} disabled={!canAddLine}>
         Add line

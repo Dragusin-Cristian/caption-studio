@@ -4,7 +4,7 @@ import { AudioService } from './audio.service';
 import { JobsService } from './jobs.service';
 import { PoolService } from './pool.service';
 import { JOB_STATUS, loadingModelStatus } from './job-status';
-import { makeSegments, mergeCues, toSrt, toVtt } from './subtitles.util';
+import { makeSegments, mergeCues, groupWords, toSrt, toVtt, DEFAULT_MAX_WORDS } from './subtitles.util';
 
 interface RunInput {
   jobId: string;
@@ -49,11 +49,12 @@ export class TranscriptionService {
           this.jobs.set(jobId, { status: JOB_STATUS.TRANSCRIBING, progress: p }),
       });
 
-      const cues = mergeCues(perSegment);
+      const words = mergeCues(perSegment);
+      const cues = groupWords(words, DEFAULT_MAX_WORDS);
       this.jobs.set(jobId, {
         status: JOB_STATUS.DONE,
         progress: 1,
-        result: { cues, srt: toSrt(cues), vtt: toVtt(cues) },
+        result: { words, cues, srt: toSrt(cues), vtt: toVtt(cues) },
       });
     } catch (e: any) {
       this.jobs.set(jobId, {

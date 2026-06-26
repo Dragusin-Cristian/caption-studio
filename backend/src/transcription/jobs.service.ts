@@ -5,7 +5,7 @@ export interface JobState {
   status: string;
   progress: number;
   segments?: number;
-  result?: { cues: Cue[]; srt: string; vtt: string };
+  result?: { words: Cue[]; cues: Cue[]; srt: string; vtt: string };
   error?: string;
 }
 
