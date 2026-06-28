@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '@/design-system/primitives/Button';
-import { Select } from '@/design-system/primitives/Select';
-import type { BurnMode } from '@/types';
 
 const Row = styled.div`
   display: flex;
@@ -13,10 +11,8 @@ const Row = styled.div`
 
 type Props = {
   canExport: boolean;
-  burnMode: BurnMode;
   burnBusy: boolean;
   linkedInPrompt: string;
-  onBurnModeChange: (mode: BurnMode) => void;
   onExportSrt: () => void;
   onExportVtt: () => void;
   onBurn: () => void;
@@ -24,10 +20,8 @@ type Props = {
 
 export function ExportBar({
   canExport,
-  burnMode,
   burnBusy,
   linkedInPrompt,
-  onBurnModeChange,
   onExportSrt,
   onExportVtt,
   onBurn,
@@ -61,14 +55,6 @@ export function ExportBar({
       >
         {copied ? 'Copied!' : 'Copy LinkedIn prompt'}
       </Button>
-      <Select
-        title="Soft = fast, toggleable track. Hard = permanently drawn on the picture."
-        value={burnMode}
-        onChange={(e) => onBurnModeChange(e.target.value as BurnMode)}
-      >
-        {/* <option value="soft">Soft subtitles (fast)</option> */}
-        <option value="hard">Hard burn-in</option>
-      </Select>
       <Button
         $variant="danger"
         type="button"

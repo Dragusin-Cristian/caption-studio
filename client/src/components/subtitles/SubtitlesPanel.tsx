@@ -4,7 +4,7 @@ import { ActionsBar } from './ActionsBar';
 import { ExportBar } from './ExportBar';
 import { StatusBar } from './StatusBar';
 import { CueList } from './CueList';
-import type { BurnMode, Cue, Status } from '@/types';
+import type { Cue, Status } from '@/types';
 
 const Hint = styled.p`
   font-size: 12.5px;
@@ -38,10 +38,8 @@ type Props = {
   canAddLine: boolean;
   onImport: (file: File) => void;
 
-  burnMode: BurnMode;
   burnBusy: boolean;
   linkedInPrompt: string;
-  onBurnModeChange: (mode: BurnMode) => void;
   onExportSrt: () => void;
   onExportVtt: () => void;
   onBurn: () => void;
@@ -76,10 +74,8 @@ export function SubtitlesPanel(props: Props) {
         />
         <ExportBar
           canExport={hasCues}
-          burnMode={props.burnMode}
           burnBusy={props.burnBusy}
           linkedInPrompt={props.linkedInPrompt}
-          onBurnModeChange={props.onBurnModeChange}
           onExportSrt={props.onExportSrt}
           onExportVtt={props.onExportVtt}
           onBurn={props.onBurn}
@@ -97,8 +93,7 @@ export function SubtitlesPanel(props: Props) {
         />
 
         <Hint>
-          <b>Burn into video</b> is done by ffmpeg on the backend. <b>Soft</b> adds a fast,
-          lossless, toggleable subtitle track (recommended). <b>Hard</b> permanently draws the
+          <b>Burn into video</b> is done by ffmpeg on the backend — it permanently draws the
           captions onto the picture (needs an ffmpeg built with libass). Output is an{' '}
           <code>.mp4</code>. Or export an <code>.srt</code> to keep captions separate and editable.
         </Hint>

@@ -13,11 +13,11 @@ import { useTranscribeJob } from '@/hooks/useTranscribeJob';
 import { burnVideo } from '@/api/burn';
 import { buildSrt, buildVtt, parseSubs, groupWords } from '@/lib/subtitles';
 import { downloadText, baseName } from '@/lib/download';
-import { DEFAULT_STYLE, DEFAULT_BURN_MODE, NEW_CUE_DURATION, DEFAULT_MAX_WORDS } from '@/config/defaults';
+import { DEFAULT_STYLE, NEW_CUE_DURATION, DEFAULT_MAX_WORDS } from '@/config/defaults';
 import { DEFAULT_MODEL, MODEL_OPTIONS } from '@/config/models';
 import { DEFAULT_LANGUAGE } from '@/config/languages';
 import { NETWORK_ERROR_RE } from '@/config/api';
-import type { BurnMode, CaptionStyle, Status, Word } from '@/types';
+import type { CaptionStyle, Status, Word } from '@/types';
 import { getPostPrompt } from './lib/postPrompt';
 
 const Wrap = styled.div`
@@ -43,7 +43,6 @@ export function App() {
   const [status, setStatus] = useState<Status>({ kind: '', message: 'Ready.' });
   const [model, setModel] = useState<string>(DEFAULT_MODEL);
   const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE);
-  const [burnMode, setBurnMode] = useState<BurnMode>(DEFAULT_BURN_MODE);
   const [burnBusy, setBurnBusy] = useState(false);
   const [maxWords, setMaxWords] = useState<number>(DEFAULT_MAX_WORDS);
   const [words, setWords] = useState<Word[]>([]);
@@ -167,16 +166,12 @@ export function App() {
       return;
     }
     setBurnBusy(true);
-    setStatus({
-      kind: 'work',
-      message:
-        burnMode === 'hard' ? 'Burning captions into the video…' : 'Muxing a subtitle track…',
-    });
+    setStatus({ kind: 'work', message: 'Burning captions into the video…' });
     try {
       const url = await burnVideo({
         jobId,
         srt: buildSrt(cues),
-        mode: burnMode,
+        mode: 'hard',
         style,
         videoWidth: video?.videoWidth || 1280,
         videoHeight: video?.videoHeight || 720,
@@ -194,7 +189,7 @@ export function App() {
     } finally {
       setBurnBusy(false);
     }
-  }, [file, cues, burnMode, style, video, jobId]);
+  }, [file, cues, style, video, jobId]);
 
   const transcribeStatus: Status = transcribe.running
     ? { kind: 'work', message: transcribe.status }
@@ -238,10 +233,8 @@ export function App() {
               onAddLine={handleAddLine}
               canAddLine={file != null}
               onImport={handleImport}
-              burnMode={burnMode}
               burnBusy={burnBusy}
               linkedInPrompt={linkedInPrompt}
-              onBurnModeChange={setBurnMode}
               onExportSrt={handleExportSrt}
               onExportVtt={handleExportVtt}
               onBurn={handleBurn}

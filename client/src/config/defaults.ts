@@ -1,4 +1,4 @@
-import type { CaptionStyle, BurnMode } from '@/types';
+import type { CaptionStyle } from '@/types';
 
 export const DEFAULT_STYLE: CaptionStyle = {
   size: 4.2,
@@ -8,8 +8,6 @@ export const DEFAULT_STYLE: CaptionStyle = {
   weight: 700,
   outline: 0,
 };
-
-export const DEFAULT_BURN_MODE: BurnMode = 'hard';
 
 export const SIZE_RANGE   = { min: 2, max: 9,  step: 0.25 } as const;
 export const POS_RANGE    = { min: 2, max: 45, step: 1    } as const;
