@@ -17,14 +17,16 @@ const app = new cdk.App({
 const ROOT_DOMAIN = "caption-studio.site";
 const APP_DOMAIN = "app.caption-studio.site";
 
-const certStack = new CertStack(app, "CaptionStudioCert", {
+const PREFIX = "CaptionStudio";
+
+const certStack = new CertStack(app, PREFIX + "Cert", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: "us-east-1" },
   crossRegionReferences: true,
   rootDomain: ROOT_DOMAIN,
   appDomain: APP_DOMAIN,
 });
 
-const clientStack = new ClientStack(app, "CaptionStudioClient", {
+const clientStack = new ClientStack(app, PREFIX + "Client", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
   crossRegionReferences: true,
   appDomain: APP_DOMAIN,
@@ -32,7 +34,7 @@ const clientStack = new ClientStack(app, "CaptionStudioClient", {
   certificate: certStack.certificate,
 });
 
-new LandingStack(app, "CaptionStudioLanding", {
+new LandingStack(app, PREFIX + "Landing", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
   crossRegionReferences: true,
   rootDomain: ROOT_DOMAIN,
@@ -40,7 +42,7 @@ new LandingStack(app, "CaptionStudioLanding", {
   certificate: certStack.certificate,
 });
 
-new BackendStack(app, "CaptionStudioBackend", {
+new BackendStack(app, PREFIX + "Backend", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
   appDomain: APP_DOMAIN,
   distribution: clientStack.distribution,
