@@ -1,4 +1,4 @@
-Liev at https://caption-studio.site
+Live at https://caption-studio.site
 
 # Caption Studio
 
